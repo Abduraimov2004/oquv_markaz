@@ -74,7 +74,11 @@ def _insert_outflow(table: str, base: dict, account_id="", method="") -> bool:
 
 
 def _center_settings(cid: str) -> dict:
-    rows = supabase.table("centers").select("name, settings, logo_url").eq("id", cid).limit(1).execute().data
+    try:
+        rows = supabase.table("centers").select("name, settings, logo_url").eq("id", cid).limit(1).execute().data
+    except Exception:
+        # logo_url ustuni hali yo'q (migratsiya run qilinmagan) — yiqilmaymiz
+        rows = supabase.table("centers").select("name, settings").eq("id", cid).limit(1).execute().data
     if not rows:
         return {"name": "", "settings": {}}
     return rows[0]
@@ -525,6 +529,7 @@ async def teachers_add(
     request: Request, user: dict = Depends(staff_required),
     full_name: str = Form(...), phone: str = Form(""), subject: str = Form(""),
     password: str = Form(""), commission_percent: str = Form(""),
+    photo: UploadFile = File(None),
 ):
     obj = {
         "center_id": user["center_id"], "full_name": full_name.strip(),
@@ -537,10 +542,35 @@ async def teachers_add(
         pct = float(str(commission_percent).replace(",", ".")) if commission_percent.strip() else 0
     except ValueError:
         pct = 0
+
+    # Rasm yuklangan bo'lsa — saqlaymiz
+    photo_url = None
+    if photo is not None and getattr(photo, "filename", ""):
+        ext = os.path.splitext(photo.filename)[1].lower()
+        if ext in (".png", ".jpg", ".jpeg", ".webp"):
+            try:
+                import uuid as _uuid
+                os.makedirs("app/static/uploads", exist_ok=True)
+                fname = f"t_{_uuid.uuid4().hex}{ext}"
+                content = await photo.read()
+                if content:
+                    with open(f"app/static/uploads/{fname}", "wb") as f:
+                        f.write(content)
+                    photo_url = f"/static/uploads/{fname}"
+            except Exception:
+                photo_url = None
+    if photo_url:
+        obj["photo_url"] = photo_url
+
     try:
         supabase.table("teachers").insert(dict(obj, commission_percent=pct)).execute()
     except Exception:
-        supabase.table("teachers").insert(obj).execute()
+        # photo_url yoki commission_percent ustuni yo'q bo'lsa — minimal qo'shamiz
+        try:
+            supabase.table("teachers").insert(dict(obj, commission_percent=pct)).execute()
+        except Exception:
+            obj.pop("photo_url", None)
+            supabase.table("teachers").insert(obj).execute()
     return RedirectResponse("/owner/teachers", status_code=303)
 
 
@@ -896,9 +926,10 @@ async def settings_general_save(
     c = _center_settings(user["center_id"])
     s = dict(c.get("settings") or {})
     s["working_hours"] = working_hours.strip()
-    upd = {"name": name.strip(), "settings": s}
+    # Nom va sozlamalarni avval saqlaymiz (logo bo'lmasa ham ishlaydi)
+    supabase.table("centers").update({"name": name.strip(), "settings": s}).eq("id", user["center_id"]).execute()
 
-    # Logo yuklangan bo'lsa — saqlaymiz
+    # Logo yuklangan bo'lsa — alohida, xatoga chidamli saqlaymiz
     if logo is not None and getattr(logo, "filename", ""):
         ext = os.path.splitext(logo.filename)[1].lower()
         if ext in (".png", ".jpg", ".jpeg", ".webp", ".svg"):
@@ -909,13 +940,13 @@ async def settings_general_save(
                 if content:
                     with open(f"app/static/uploads/{fname}", "wb") as f:
                         f.write(content)
-                    # ?v= bilan brauzer keshini yangilaymiz
                     import time as _t
-                    upd["logo_url"] = f"/static/uploads/{fname}?v={int(_t.time())}"
+                    url = f"/static/uploads/{fname}?v={int(_t.time())}"
+                    supabase.table("centers").update({"logo_url": url}).eq("id", user["center_id"]).execute()
             except Exception:
+                # logo_url ustuni hali yo'q bo'lsa — jim o'tamiz (migratsiya kerak)
                 pass
 
-    supabase.table("centers").update(upd).eq("id", user["center_id"]).execute()
     return RedirectResponse("/owner/settings/general?saved=1", status_code=303)
 
 

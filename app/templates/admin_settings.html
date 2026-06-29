@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Tizim sozlamalari{% endblock %}
+{% block heading %}Tizim sozlamalari{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Brend nomi, logo va umumiy sozlamalar (faqat siz ko'rasiz).</p></div></div>
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+
+<div class="formcard">
+  <form method="post" action="/admin/settings" enctype="multipart/form-data">
+
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px">
+      <div style="width:56px;height:56px;border-radius:12px;overflow:hidden;background:#e8f2ef;display:grid;place-items:center;border:1px solid var(--line)">
+        {% if s.logo_url %}
+          <img src="{{ s.logo_url }}" alt="logo" style="width:100%;height:100%;object-fit:cover">
+        {% else %}
+          <span style="font-family:'Sora';font-weight:700;font-size:22px;color:var(--brand-2)">O</span>
+        {% endif %}
+      </div>
+      <div style="flex:1">
+        <label class="f">Tizim logosi</label>
+        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+        <div class="muted" style="font-size:11.5px;margin-top:4px">Sizning superadmin paneli yon menyusida ko'rinadi.</div>
+      </div>
+    </div>
+
+    <div class="frow">
+      <div><label class="f">Brend nomi</label><input name="brand_name" value="{{ s.brand_name or '' }}" placeholder="Masalan: EduCRM"></div>
+      <div><label class="f">Yangi markaz uchun standart obuna narxi (so'm)</label><input name="default_fee" type="number" step="1000" value="{{ s.default_fee or '' }}" placeholder="500000"></div>
+    </div>
+    <div class="frow" style="margin-top:12px">
+      <div><label class="f">Qo'llab-quvvatlash telefoni</label><input name="support_phone" value="{{ s.support_phone or '' }}" placeholder="+998 90 ..."></div>
+      <div><label class="f">Qo'llab-quvvatlash Telegram</label><input name="support_telegram" value="{{ s.support_telegram or '' }}" placeholder="@username"></div>
+    </div>
+
+    <div style="margin-top:16px"><button class="btn" type="submit">Saqlash</button></div>
+  </form>
+</div>
+
+<div class="muted" style="font-size:12.5px;margin-top:14px">
+  💡 Bu sozlamalar tizim darajasida saqlanadi. Markaz egalari o'z logolarini <b>o'z sozlamalarida</b> alohida yuklaydi.
+</div>
+
+{% endblock %}

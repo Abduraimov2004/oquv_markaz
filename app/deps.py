@@ -51,6 +51,15 @@ def _load_perms(uid: str) -> set:
         return set()
 
 
+def _sys_get() -> dict:
+    """Tizim (superadmin) sozlamalari — JSON. Migratsiya yo'q bo'lsa bo'sh."""
+    try:
+        rows = supabase.table("system_settings").select("data").eq("id", 1).limit(1).execute().data or []
+        return (rows[0].get("data") if rows else {}) or {}
+    except Exception:
+        return {}
+
+
 def _center_info(cid):
     if not cid:
         return {}
@@ -187,6 +196,10 @@ def admin_required(request: Request) -> dict:
     user = current_user(request)
     if not user or user.get("role") != "superadmin":
         raise AuthRedirect()
+    sys = _sys_get()
+    user = dict(user)
+    user["center_name"] = sys.get("brand_name") or None
+    user["center_logo"] = sys.get("logo_url") or None
     return user
 
 

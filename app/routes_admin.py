@@ -4,13 +4,14 @@ Bu yerda center_id filtri YO'Q — chunki superadmin hammasini boshqaradi.
 """
 from datetime import date, timedelta, datetime
 import calendar
+import os
 
-from fastapi import APIRouter, Request, Form, Depends
+from fastapi import APIRouter, Request, Form, Depends, File, UploadFile
 from fastapi.responses import RedirectResponse
 
 from app.db import supabase
 from app.security import hash_password
-from app.deps import norm_phone, templates, admin_required
+from app.deps import norm_phone, templates, admin_required, _sys_get
 
 router = APIRouter(prefix="/admin")
 
@@ -391,3 +392,62 @@ async def news_add(request: Request, user: dict = Depends(admin_required),
 async def news_delete(nid: str, request: Request, user: dict = Depends(admin_required)):
     supabase.table("news").delete().eq("id", nid).execute()
     return RedirectResponse("/admin/news", status_code=303)
+
+
+# ====================================================================
+#  TIZIM SOZLAMALARI — superadmin uchun
+# ====================================================================
+def _sys_save(data: dict):
+    """system_settings (id=1) ni yangilaydi (bo'lmasa yaratadi)."""
+    try:
+        supabase.table("system_settings").update({"data": data}).eq("id", 1).execute()
+    except Exception:
+        try:
+            supabase.table("system_settings").insert({"id": 1, "data": data}).execute()
+        except Exception:
+            pass
+
+
+@router.get("/settings")
+async def admin_settings(request: Request, user: dict = Depends(admin_required)):
+    s = _sys_get()
+    return templates.TemplateResponse("admin_settings.html", {
+        "request": request, "user": user, "active": "settings",
+        "s": s, "saved": request.query_params.get("saved"),
+    })
+
+
+@router.post("/settings")
+async def admin_settings_save(
+    request: Request, user: dict = Depends(admin_required),
+    brand_name: str = Form(""), support_phone: str = Form(""),
+    support_telegram: str = Form(""), default_fee: str = Form(""),
+    logo: UploadFile = File(None),
+):
+    s = dict(_sys_get())
+    s["brand_name"] = brand_name.strip()
+    s["support_phone"] = support_phone.strip()
+    s["support_telegram"] = support_telegram.strip()
+    try:
+        s["default_fee"] = float(str(default_fee).replace(" ", "").replace(",", ".")) if default_fee.strip() else 0
+    except ValueError:
+        s["default_fee"] = 0
+
+    # Tizim logosi
+    if logo is not None and getattr(logo, "filename", ""):
+        ext = os.path.splitext(logo.filename)[1].lower()
+        if ext in (".png", ".jpg", ".jpeg", ".webp", ".svg"):
+            try:
+                os.makedirs("app/static/uploads", exist_ok=True)
+                fname = f"system_logo{ext}"
+                content = await logo.read()
+                if content:
+                    with open(f"app/static/uploads/{fname}", "wb") as f:
+                        f.write(content)
+                    import time as _t
+                    s["logo_url"] = f"/static/uploads/{fname}?v={int(_t.time())}"
+            except Exception:
+                pass
+
+    _sys_save(s)
+    return RedirectResponse("/admin/settings?saved=1", status_code=303)

@@ -50,7 +50,16 @@
       <tbody>
         {% for s in students %}
         <tr{% if not s.active %} style="opacity:.55"{% endif %}>
-          <td><b>{{ s.full_name }}</b></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              {% if s.photo_url %}
+              <img src="{{ s.photo_url }}" alt="" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0">
+              {% else %}
+              <span style="width:34px;height:34px;border-radius:50%;background:#e8f2ef;color:var(--brand-2);display:grid;place-items:center;font-family:'Sora';font-weight:700;font-size:13px;flex-shrink:0">{{ (s.full_name or '?')[0]|upper }}</span>
+              {% endif %}
+              <b>{{ s.full_name }}</b>
+            </div>
+          </td>
           <td>
             {% if s.subjects %}
               {% for sub in s.subjects %}<span class="pill ok" style="margin:1px 2px">{{ sub }}</span>{% endfor %}

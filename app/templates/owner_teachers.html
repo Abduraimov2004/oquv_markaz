@@ -7,13 +7,14 @@
 
 <div class="formcard">
   <h2>Yangi o'qituvchi</h2>
-  <form method="post" action="/owner/teachers/add">
+  <form method="post" action="/owner/teachers/add" enctype="multipart/form-data">
     <div class="frow">
       <div><label class="f">F.I.O.</label><input name="full_name" placeholder="Karimova Dilnoza" required></div>
       <div><label class="f">Telefon (login)</label><input name="phone" placeholder="+998 90 ..."></div>
       <div><label class="f">Fan</label><input name="subject" placeholder="Ingliz tili"></div>
       <div><label class="f">Parol</label><input name="password" type="text" placeholder="parol123"></div>
       <div><label class="f">Foiz (%)</label><input name="commission_percent" type="number" step="0.1" placeholder="40"></div>
+      <div><label class="f">Rasm</label><input name="photo" type="file" accept="image/png,image/jpeg,image/webp"></div>
       <div><button class="btn" type="submit">+ Qo'shish</button></div>
     </div>
   </form>
@@ -35,7 +36,16 @@
       <tbody>
         {% for t in teachers %}
         <tr>
-          <td><b>{{ t.full_name }}</b></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              {% if t.photo_url %}
+              <img src="{{ t.photo_url }}" alt="" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0">
+              {% else %}
+              <span style="width:34px;height:34px;border-radius:50%;background:#e8f2ef;color:var(--brand-2);display:grid;place-items:center;font-family:'Sora';font-weight:700;font-size:13px;flex-shrink:0">{{ (t.full_name or '?')[0]|upper }}</span>
+              {% endif %}
+              <b>{{ t.full_name }}</b>
+            </div>
+          </td>
           <td class="muted">{{ t.subject or "—" }}</td>
           <td class="muted">{{ t.phone or "—" }}</td>
           <td>{{ t.commission_percent }}%</td>
