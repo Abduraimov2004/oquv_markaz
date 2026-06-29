@@ -247,6 +247,16 @@ async def center_toggle(cid: str, request: Request, user: dict = Depends(admin_r
     return RedirectResponse(f"/admin/centers/{cid}", status_code=303)
 
 
+@router.post("/centers/{cid}/force")
+async def center_force(cid: str, request: Request, user: dict = Depends(admin_required)):
+    """Obuna tugagan bo'lsa ham markaz ishlashda davom etsin (majburiy faol)."""
+    rows = supabase.table("centers").select("force_active").eq("id", cid).limit(1).execute().data
+    cur = bool(rows[0].get("force_active")) if rows else False
+    supabase.table("centers").update({"force_active": (not cur)}).eq("id", cid).execute()
+    return RedirectResponse(f"/admin/centers/{cid}", status_code=303)
+
+
+
 @router.post("/centers/{cid}/delete")
 async def center_delete(cid: str, request: Request, user: dict = Depends(admin_required)):
     try:

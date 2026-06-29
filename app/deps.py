@@ -3,6 +3,8 @@
 Sessiyada `request.session["user"]` saqlanadi:
     {"id": ..., "role": "owner"|"superadmin", "center_id": ..., "name": ...}
 """
+from datetime import date
+
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
@@ -53,10 +55,41 @@ def _center_info(cid):
     if not cid:
         return {}
     try:
-        rows = supabase.table("centers").select("name, status, subscription_until").eq("id", cid).limit(1).execute().data or []
+        rows = supabase.table("centers").select(
+            "name, status, subscription_until, force_active, logo_url"
+        ).eq("id", cid).limit(1).execute().data or []
         return rows[0] if rows else {}
     except Exception:
-        return {}
+        # Eski bazada (v17 migratsiyasi run qilinmagan) ustunlar bo'lmasligi mumkin
+        try:
+            rows = supabase.table("centers").select(
+                "name, status, subscription_until"
+            ).eq("id", cid).limit(1).execute().data or []
+            return rows[0] if rows else {}
+        except Exception:
+            return {}
+
+
+def _center_block_reason(c) -> str | None:
+    """Markazga kirish to'siqmi? None=ruxsat, 'suspended'=admin to'xtatgan,
+    'expired'=obuna tugagan. Admin 'force_active' qo'ysa obuna tugasa ham ishlaydi."""
+    if not c:
+        return None
+    # Admin qo'lda to'xtatgan bo'lsa — har doim bloklangan
+    if c.get("status") and c["status"] != "active":
+        return "suspended"
+    # Admin "obuna tugasa ham ishlasin" deb belgilagan bo'lsa — ruxsat
+    if c.get("force_active"):
+        return None
+    # Obuna sanasi o'tib ketgan bo'lsa — to'xtatiladi
+    su = c.get("subscription_until")
+    if su:
+        try:
+            if date.fromisoformat(str(su)[:10]) < date.today():
+                return "expired"
+        except Exception:
+            pass
+    return None
 
 
 # Yangi Starlette TemplateResponse(request, name, context) tartibini talab qiladi.
@@ -122,11 +155,13 @@ def _staff_guard(request: Request, allow: tuple) -> dict:
             raise AuthRedirect("/owner?denied=1")
         raise AuthRedirect()
     c = _center_info(user.get("center_id"))
-    if c and c.get("status") and c["status"] != "active":
+    reason = _center_block_reason(c)
+    if reason:
         clear_user(request)
-        raise AuthRedirect("/login?suspended=1")
+        raise AuthRedirect(f"/login?{reason}=1")
     user = dict(user)
     user["center_name"] = c.get("name")
+    user["center_logo"] = c.get("logo_url")
     user["is_owner"] = (role == "owner")
     if role == "reception":
         perms = _load_perms(user.get("id"))
@@ -161,11 +196,13 @@ def teacher_required(request: Request) -> dict:
     if not user or user.get("role") != "teacher":
         raise AuthRedirect()
     c = _center_info(user.get("center_id"))
-    if c and c.get("status") and c["status"] != "active":
+    reason = _center_block_reason(c)
+    if reason:
         clear_user(request)
-        raise AuthRedirect("/login?suspended=1")
+        raise AuthRedirect(f"/login?{reason}=1")
     user = dict(user)
     user["center_name"] = c.get("name")
+    user["center_logo"] = c.get("logo_url")
     return user
 
 

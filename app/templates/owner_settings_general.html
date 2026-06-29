@@ -8,12 +8,28 @@
 {% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
 
 <div class="formcard">
-  <form method="post" action="/owner/settings/general">
+  <form method="post" action="/owner/settings/general" enctype="multipart/form-data">
     <div class="frow">
       <div><label class="f">Markaz nomi</label><input name="name" value="{{ center.name or '' }}" required></div>
       <div><label class="f">Ish vaqti</label><input name="working_hours" value="{{ settings.working_hours or '' }}" placeholder="09:00 - 19:00"></div>
     </div>
-    <div style="margin-top:14px"><button class="btn" type="submit">Saqlash</button></div>
+
+    <div style="margin-top:16px;display:flex;align-items:center;gap:14px">
+      <div style="width:56px;height:56px;border-radius:12px;overflow:hidden;background:#e8f2ef;display:grid;place-items:center;border:1px solid var(--line)">
+        {% if center.logo_url %}
+          <img src="{{ center.logo_url }}" alt="logo" style="width:100%;height:100%;object-fit:cover">
+        {% else %}
+          <span style="font-family:'Sora';font-weight:700;font-size:22px;color:var(--brand-2)">{{ (center.name or 'M')[0]|upper }}</span>
+        {% endif %}
+      </div>
+      <div style="flex:1">
+        <label class="f">Markaz logosi</label>
+        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+        <div class="muted" style="font-size:11.5px;margin-top:4px">PNG/JPG/WEBP. Kvadrat rasm tavsiya etiladi. Sidebar va loginда ko'rinadi.</div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px"><button class="btn" type="submit">Saqlash</button></div>
   </form>
 </div>
 

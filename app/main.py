@@ -9,7 +9,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.config import settings
 from app.db import supabase
 from app.security import verify_password
-from app.deps import templates, current_user, AuthRedirect, set_user, clear_user, norm_phone
+from app.deps import templates, current_user, AuthRedirect, set_user, clear_user, norm_phone, _center_info, _center_block_reason
 from app.routes_owner import router as owner_router
 from app.routes_admin import router as admin_router
 from app.routes_teacher import router as teacher_router
@@ -58,6 +58,8 @@ async def login_page(request: Request):
     err = None
     if request.query_params.get("suspended"):
         err = "Markaz vaqtincha to'xtatilgan. Tizim egasiga murojaat qiling."
+    elif request.query_params.get("expired"):
+        err = "Markaz obunasi tugagan. Davom etish uchun to'lov qiling (tizim egasiga murojaat qiling)."
     return templates.TemplateResponse("login.html", {
         "request": request, "error": err, "current": current_user(request),
     })
@@ -79,9 +81,14 @@ async def login_submit(request: Request, phone: str = Form(...), password: str =
     user = rows[0] if rows else None
 
     if user and verify_password(password, user["password_hash"]):
-        if user.get("role") == "owner" and user.get("center_id"):
-            crows = supabase.table("centers").select("status").eq("id", user["center_id"]).limit(1).execute().data or []
-            if crows and crows[0].get("status") and crows[0]["status"] != "active":
+        if user.get("role") in ("owner", "reception", "teacher") and user.get("center_id"):
+            reason = _center_block_reason(_center_info(user["center_id"]))
+            if reason == "expired":
+                return templates.TemplateResponse("login.html", {
+                    "request": request,
+                    "error": "Markaz obunasi tugagan. Davom etish uchun to'lov qiling (tizim egasiga murojaat qiling).",
+                }, status_code=403)
+            if reason == "suspended":
                 return templates.TemplateResponse("login.html", {
                     "request": request,
                     "error": "Markaz vaqtincha to'xtatilgan. Tizim egasiga murojaat qiling.",

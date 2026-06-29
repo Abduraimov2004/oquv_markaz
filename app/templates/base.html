@@ -150,7 +150,11 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="brand">
-        <div class="logo">O</div>
+        {% if user.center_logo %}
+        <div class="logo" style="background:#fff;overflow:hidden;padding:0"><img src="{{ user.center_logo }}" alt="logo" style="width:100%;height:100%;object-fit:cover"></div>
+        {% else %}
+        <div class="logo">{{ (user.center_name or "O")[0]|upper }}</div>
+        {% endif %}
         <div><b>{{ user.center_name if user.center_name else "O'quv Markaz" }}</b><span>{{ "TIZIM EGASI" if user.role=="superadmin" else ("O'QITUVCHI" if user.role=="teacher" else ("ADMINISTRATOR" if user.role=="reception" else "MARKAZ PANELI")) }}</span></div>
       </div>
       <nav class="nav">

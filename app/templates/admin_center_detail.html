@@ -50,6 +50,22 @@
       <button class="btn" style="background:var(--good)">▶ Faollashtirish</button>
       {% endif %}
     </form>
+
+    <div style="background:#f7faf9;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">
+        Obuna tugaganda markaz avtomatik <b>to'xtatiladi</b> (egasi kira olmaydi).
+        Agar tugagan bo'lsa ham ishlashda davom etsin desangiz — quyidagini yoqing:
+      </div>
+      <form method="post" action="/admin/centers/{{ center.id }}/force" style="margin:0">
+        {% if center.force_active %}
+        <span class="pill ok" style="margin-right:8px">✓ Obuna tugasa ham ishlaydi</span>
+        <button class="btn" style="background:#8a8f98;padding:8px 14px">O'chirish</button>
+        {% else %}
+        <button class="btn" style="background:var(--brand-2);padding:8px 14px">Obuna tugasa ham ishlasin</button>
+        {% endif %}
+      </form>
+    </div>
+
     <form method="post" action="/admin/centers/{{ center.id }}/password" style="display:flex;gap:8px;align-items:end">
       <div style="flex:1"><label class="f">Egasiga yangi parol</label><input name="password" type="text" placeholder="yangi parol" required></div>
       <button class="btn" type="submit">O'rnatish</button>

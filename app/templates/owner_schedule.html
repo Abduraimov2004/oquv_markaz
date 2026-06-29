@@ -127,6 +127,10 @@
             <div class="s-name">{{ b.name }}</div>
             <div class="s-meta">{{ b.time }}{% if b.room %} · {{ b.room }}{% endif %}</div>
             {% if b.teacher %}<div class="s-meta">{{ b.teacher }}</div>{% endif %}
+            <div class="s-meta" style="font-weight:600">
+              👥 {{ b.students }} o'quvchi
+              {% if b.att_today and b.att_marked %} · ✅ {{ b.att_present }}/{{ b.att_marked }} keldi{% endif %}
+            </div>
             <form method="post" action="/owner/schedule/{{ b.id }}/delete" style="margin:0" onsubmit="return confirm('O\'chirilsinmi?')">
               <button class="s-x">×</button>
             </form>

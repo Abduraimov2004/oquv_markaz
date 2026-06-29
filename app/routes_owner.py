@@ -74,7 +74,7 @@ def _insert_outflow(table: str, base: dict, account_id="", method="") -> bool:
 
 
 def _center_settings(cid: str) -> dict:
-    rows = supabase.table("centers").select("name, settings").eq("id", cid).limit(1).execute().data
+    rows = supabase.table("centers").select("name, settings, logo_url").eq("id", cid).limit(1).execute().data
     if not rows:
         return {"name": "", "settings": {}}
     return rows[0]
@@ -891,11 +891,31 @@ async def settings_general(request: Request, user: dict = Depends(owner_required
 async def settings_general_save(
     request: Request, user: dict = Depends(owner_required),
     name: str = Form(...), working_hours: str = Form(""),
+    logo: UploadFile = File(None),
 ):
     c = _center_settings(user["center_id"])
     s = dict(c.get("settings") or {})
     s["working_hours"] = working_hours.strip()
-    supabase.table("centers").update({"name": name.strip(), "settings": s}).eq("id", user["center_id"]).execute()
+    upd = {"name": name.strip(), "settings": s}
+
+    # Logo yuklangan bo'lsa — saqlaymiz
+    if logo is not None and getattr(logo, "filename", ""):
+        ext = os.path.splitext(logo.filename)[1].lower()
+        if ext in (".png", ".jpg", ".jpeg", ".webp", ".svg"):
+            try:
+                os.makedirs("app/static/uploads", exist_ok=True)
+                fname = f"logo_{user['center_id']}{ext}"
+                content = await logo.read()
+                if content:
+                    with open(f"app/static/uploads/{fname}", "wb") as f:
+                        f.write(content)
+                    # ?v= bilan brauzer keshini yangilaymiz
+                    import time as _t
+                    upd["logo_url"] = f"/static/uploads/{fname}?v={int(_t.time())}"
+            except Exception:
+                pass
+
+    supabase.table("centers").update(upd).eq("id", user["center_id"]).execute()
     return RedirectResponse("/owner/settings/general?saved=1", status_code=303)
 
 
@@ -1290,6 +1310,35 @@ async def schedule_page(request: Request, user: dict = Depends(staff_required)):
     except Exception:
         slots = []
 
+    # Har guruhda nechta o'quvchi (enrollments)
+    try:
+        enr = supabase.table("enrollments").select("group_id").eq("center_id", cid).execute().data or []
+    except Exception:
+        enr = []
+    gcount = {}
+    for e in enr:
+        gid = e.get("group_id")
+        if gid:
+            gcount[gid] = gcount.get(gid, 0) + 1
+
+    # Bugungi davomat (kelgan / jami belgilangan) — har guruh bo'yicha
+    now = datetime.now()
+    cur_wd = now.isoweekday()
+    cur_min = now.hour * 60 + now.minute
+    today_iso = date.today().isoformat()
+    try:
+        att = supabase.table("attendance").select("group_id, status").eq("center_id", cid).eq("date", today_iso).execute().data or []
+    except Exception:
+        att = []
+    g_present, g_marked = {}, {}
+    for a in att:
+        gid = a.get("group_id")
+        if not gid:
+            continue
+        g_marked[gid] = g_marked.get(gid, 0) + 1
+        if a.get("status") in ("present", "late"):
+            g_present[gid] = g_present.get(gid, 0) + 1
+
     days = []
     for wd, label in WEEKDAYS:
         blocks = []
@@ -1299,8 +1348,10 @@ async def schedule_page(request: Request, user: dict = Depends(staff_required)):
             st, en = _to_min(s.get("start_time")), _to_min(s.get("end_time"))
             if st is None or en is None or en <= st:
                 continue
-            g = gmap.get(s["group_id"], {})
-            bg, fg = _color_for(s["group_id"])
+            gid = s["group_id"]
+            g = gmap.get(gid, {})
+            bg, fg = _color_for(gid)
+            is_today = (wd == cur_wd)
             blocks.append({
                 "id": s["id"], "name": g.get("name", "—"),
                 "room": rmap.get(s.get("room_id"), ""), "teacher": tname.get(g.get("teacher_id"), ""),
@@ -1308,6 +1359,10 @@ async def schedule_page(request: Request, user: dict = Depends(staff_required)):
                 "top": round((st - _DAY_START) / _SPAN * 100, 2),
                 "height": round(max(7, (en - st) / _SPAN * 100), 2),
                 "bg": bg, "fg": fg,
+                "students": gcount.get(gid, 0),
+                "att_today": is_today,
+                "att_present": g_present.get(gid, 0) if is_today else None,
+                "att_marked": g_marked.get(gid, 0) if is_today else None,
             })
         blocks.sort(key=lambda b: b["top"])
         _short = {1: "Du", 2: "Se", 3: "Cho", 4: "Pay", 5: "Ju", 6: "Sha", 7: "Yak"}
@@ -1316,9 +1371,6 @@ async def schedule_page(request: Request, user: dict = Depends(staff_required)):
     hours = [{"label": f"{h:02d}:00", "top": round((h * 60 - _DAY_START) / _SPAN * 100, 2)} for h in range(8, 23)]
 
     # Xonalar bandligi — hozirgi vaqtga qarab
-    now = datetime.now()
-    cur_wd = now.isoweekday()
-    cur_min = now.hour * 60 + now.minute
     busy = {}
     for s in slots:
         if int(s.get("weekday") or 0) != cur_wd or not s.get("room_id"):
