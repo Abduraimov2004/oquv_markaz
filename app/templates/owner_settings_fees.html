@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Fan narxlari{% endblock %}
+{% block heading %}Fan narxlari{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p>Har fanga (guruhga) alohida oylik to'lov belgilang. To'lovlar va qarzlar shu narxlar asosida hisoblanadi.</p></div>
+  <a href="/owner/settings" class="muted" style="font-size:13px">← Sozlamalar</a>
+</div>
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+{% if err %}<div class="err">Saqlashda xato. Qaytadan urinib ko'ring (Ctrl+F5).</div>{% endif %}
+
+<div class="card">
+  <div class="hd"><h2>Fanlar ({{ groups|length }})</h2></div>
+  <div class="bd">
+    {% if groups %}
+    <table>
+      <thead><tr><th>Fan / guruh</th><th>O'quvchi</th><th>Oylik to'lov (so'm)</th><th>Kutilayotgan / oy</th><th></th></tr></thead>
+      <tbody>
+        {% for g in groups %}
+        <tr>
+          <td><b>{{ g.name }}</b>{% if g.subject %} <span class="muted">· {{ g.subject }}</span>{% endif %}</td>
+          <td>{{ g.count }}</td>
+          <td colspan="2">
+            <form method="post" action="/owner/settings/fees" style="display:flex;gap:8px;align-items:center">
+              <input type="hidden" name="group_id" value="{{ g.id }}">
+              <input name="monthly_fee" type="number" value="{{ (g.monthly_fee or 0)|int }}" placeholder="300000" style="width:160px;padding:8px 10px">
+              <button class="btn" style="padding:8px 14px;font-size:13px">Saqlash</button>
+              <span class="muted" style="font-size:12.5px">Jami: {{ "{:,.0f}".format(g.expected).replace(",", " ") }} so'm</span>
+            </form>
+          </td>
+          <td></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali guruh (fan) yo'q. Avval Guruhlar bo'limidan qo'shing.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

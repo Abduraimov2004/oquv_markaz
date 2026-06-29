@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Baho{% endblock %}
+{% block heading %}Baho qo'yish{% endblock %}
+{% block content %}
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ {{ saved }} ta baho saqlandi va ota-onaga yuborildi.</div>{% endif %}
+
+<div class="card">
+  <div class="hd" style="gap:10px;flex-wrap:wrap">
+    <h2>Baholar</h2>
+    <form method="get" action="/teacher/grades" style="margin-left:auto;display:flex;gap:8px">
+      <select name="group" onchange="this.form.submit()" style="width:auto;min-width:150px">
+        {% for g in groups %}<option value="{{ g.id }}" {{ 'selected' if sel==g.id }}>{{ g.name }}</option>{% endfor %}
+      </select>
+      <input type="date" name="date" value="{{ date }}" onchange="this.form.submit()" style="width:auto">
+    </form>
+  </div>
+  <div class="bd">
+    {% if students %}
+    {% if locked %}
+    <div style="display:flex;align-items:center;gap:12px;padding:0 0 12px">
+      <span class="pill ok">Saqlangan ✓</span>
+      <span class="muted" style="font-size:13px">Bu kun uchun baholar kiritilgan.</span>
+      <a href="/teacher/grades?group={{ sel }}&date={{ date }}&edit=1" class="btn" style="margin-left:auto;padding:7px 14px;font-size:13px">✎ Tahrirlash</a>
+    </div>
+    {% endif %}
+    <form method="post" action="/teacher/grades">
+      <input type="hidden" name="group_id" value="{{ sel }}">
+      <input type="hidden" name="date" value="{{ date }}">
+      <table>
+        <thead><tr><th>O'quvchi</th><th>Baho</th><th>Izoh</th></tr></thead>
+        <tbody>
+          {% for s in students %}
+          <tr>
+            <td><b>{{ s.full_name }}</b></td>
+            <td>
+              <select name="grade_{{ s.id }}" style="width:auto;min-width:70px" {{ 'disabled' if locked }}>
+                <option value="">—</option>
+                {% for v in [5,4,3,2] %}<option value="{{ v }}" {{ 'selected' if s.grade and s.grade|string==v|string }}>{{ v }}</option>{% endfor %}
+              </select>
+            </td>
+            <td>
+              <select name="comment_{{ s.id }}" style="width:auto;min-width:170px" {{ 'disabled' if locked }}>
+                {% for c in comments %}<option value="{{ c }}" {{ 'selected' if (s.comment or '')==c }}>{{ c or "— izohsiz —" }}</option>{% endfor %}
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if not locked %}
+      <div style="padding:14px"><button class="btn" type="submit">Baholarni saqlash</button></div>
+      <p class="muted" style="padding:0 14px 14px;font-size:12.5px">Faqat baho tanlangan o'quvchilar saqlanadi.</p>
+      {% endif %}
+    </form>
+    {% else %}<div class="empty">Guruh tanlanmagan yoki o'quvchi yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

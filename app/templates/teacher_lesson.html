@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Bugungi dars{% endblock %}
+{% block heading %}Bugungi dars{% endblock %}
+{% block content %}
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Kunlik xulosa {{ saved }} ta ota-onaga yuborildi.</div>{% endif %}
+
+<div class="formcard">
+  <form method="get" action="/teacher/lesson" style="margin-bottom:16px;display:flex;gap:10px;align-items:end;flex-wrap:wrap">
+    <div><label class="f">Guruh</label>
+      <select name="group" onchange="this.form.submit()" style="width:auto;min-width:200px">
+        {% for g in groups %}<option value="{{ g.id }}" {{ 'selected' if sel==g.id }}>{{ g.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div><label class="f">Dars sanasi</label><input type="date" name="date" value="{{ date }}" onchange="this.form.submit()" style="width:auto"></div>
+  </form>
+  <form method="post" action="/teacher/lesson">
+    <input type="hidden" name="group_id" value="{{ sel }}">
+    <input type="hidden" name="date" value="{{ date }}">
+    <div><label class="f">O'tilgan mavzu</label><input name="topic" value="{{ topic }}" placeholder="Masalan: Kvadrat tenglamalar" required></div>
+    <div style="margin-top:12px"><label class="f">Uyga vazifa (ixtiyoriy)</label><textarea name="homework" placeholder="Masalan: 45-46 mashqlar">{{ homework }}</textarea></div>
+    <div style="margin-top:14px"><button class="btn" type="submit">Yuborish (barcha ota-onalarga)</button></div>
+    <p class="muted" style="font-size:12px;margin-top:10px">Sanani o'zgartirib, o'tgan kungi darsni keyin ham yuborishingiz mumkin.</p>
+  </form>
+</div>
+
+{% endblock %}

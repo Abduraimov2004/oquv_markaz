@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Guruhlar{% endblock %}
+{% block heading %}Guruhlar{% endblock %}
+{% block content %}
+
+<div class="formcard">
+  <h2>Yangi guruh</h2>
+  <form method="post" action="/owner/groups/add">
+    <div class="frow">
+      <div><label class="f">Guruh nomi</label><input name="name" placeholder="Matematika A1" required></div>
+      <div><label class="f">Fan</label><input name="subject" placeholder="Matematika"></div>
+      <div><label class="f">O'qituvchi</label>
+        <select name="teacher_id">
+          <option value="">— tanlanmagan —</option>
+          {% for t in teachers %}<option value="{{ t.id }}">{{ t.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><label class="f">Kunlar</label><input name="schedule_days" placeholder="Du,Chor,Ju"></div>
+      <div><label class="f">Vaqt</label><input name="schedule_time" placeholder="16:00"></div>
+      <div><button class="btn" type="submit">+ Qo'shish</button></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:10px">Oylik to'lov bu yerda emas — <a href="/owner/settings/fees" style="color:var(--brand);font-weight:600">Sozlamalar → Fan narxlari</a> bo'limidan belgilanadi.</p>
+  </form>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>Guruhlar ({{ groups|length }})</h2></div>
+  <div class="bd">
+    {% if groups %}
+    <table>
+      <thead><tr><th>Nomi</th><th>Fan</th><th>O'qituvchi</th><th>Jadval</th><th>Oylik to'lov</th><th>O'quvchi / Sig'im</th><th>Navbat</th><th></th></tr></thead>
+      <tbody>
+        {% for g in groups %}
+        <tr>
+          <td><b>{{ g.name }}</b></td>
+          <td class="muted">{{ g.subject or "—" }}</td>
+          <td>{{ g.teacher_name }}</td>
+          <td class="muted">{{ g.schedule_days or "—" }} {{ g.schedule_time or "" }}</td>
+          <td>{% if g.monthly_fee and g.monthly_fee > 0 %}{{ "{:,.0f}".format(g.monthly_fee).replace(",", " ") }} so'm{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td>
+            <b>{{ g.student_count }}</b>{% if g.capacity %} / {{ g.capacity }}
+              {% if g.is_full %}<span class="pill bad" style="margin-left:4px">To'lgan</span>{% endif %}
+            {% else %}<span class="muted"> / ∞</span>{% endif %}
+          </td>
+          <td>{% if g.waitlist_count %}<span class="pill warn">{{ g.waitlist_count }} kishi</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td style="text-align:right"><a href="/owner/groups/{{ g.id }}" class="btn" style="padding:6px 12px;font-size:12.5px">O'quvchilar →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali guruh yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

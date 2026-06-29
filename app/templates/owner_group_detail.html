@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }}{% endblock %}
+{% block heading %}Guruh: {{ group.name }}{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p>{{ group.subject or "—" }} · O'qituvchi: {{ group.teacher_name }} · {{ group.schedule_days or "" }} {{ group.schedule_time or "" }}</p></div>
+  <a href="/owner/groups" class="muted" style="font-size:13px">← Guruhlar</a>
+</div>
+
+<div class="formcard">
+  <h2>Oylik to'lov</h2>
+  <p style="font-size:18px;font-weight:600;font-family:'Sora'">
+    {% if group.monthly_fee and group.monthly_fee > 0 %}{{ "{:,.0f}".format(group.monthly_fee).replace(",", " ") }} so'm{% else %}<span class="muted" style="font-size:14px">belgilanmagan</span>{% endif %}
+  </p>
+  <p class="muted" style="font-size:12.5px;margin-top:8px">Har fanning narxini bitta joyda boshqarish uchun →
+    <a href="/owner/settings/fees" style="color:var(--brand);font-weight:600">Sozlamalar → Fan narxlari</a></p>
+</div>
+
+<div class="formcard">
+  <h2>Sig'im (nechta o'quvchi)</h2>
+  <p style="font-size:15px;margin-bottom:8px">
+    Hozir: <b>{{ enrolled_n }}</b>{% if capacity %} / {{ capacity }}
+      {% if is_full %}<span class="pill bad" style="margin-left:6px">To'lgan</span>{% else %}<span class="pill ok" style="margin-left:6px">{{ capacity - enrolled_n }} joy bor</span>{% endif %}
+    {% else %} o'quvchi <span class="muted">(limit belgilanmagan)</span>{% endif %}
+  </p>
+  <form method="post" action="/owner/groups/{{ group.id }}/capacity" style="display:flex;gap:8px;align-items:end">
+    <div><label class="f">Sig'im (bo'sh = cheksiz)</label><input name="capacity" type="number" min="0" value="{{ capacity or '' }}" style="width:140px"></div>
+    <button class="btn" type="submit">Saqlash</button>
+  </form>
+</div>
+
+<div class="formcard">
+  <h2>Guruhga o'quvchi qo'shish</h2>
+  {% if request and request.query_params.get('err') == 'full' %}<div class="err">⚠ Guruh to'lgan! Avval sig'imni oshiring yoki o'quvchini navbatga qo'shing.</div>{% endif %}
+  {% if others %}
+  <form method="post" action="/owner/groups/{{ group.id }}/students/add">
+    <div class="frow">
+      <div style="flex:1;min-width:240px"><label class="f">O'quvchi</label>
+        <select name="student_id" required>
+          <option value="">— tanlang —</option>
+          {% for s in others %}<option value="{{ s.id }}">{{ s.full_name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><button class="btn" type="submit">+ Qo'shish</button></div>
+    </div>
+  </form>
+  {% else %}<p class="muted" style="font-size:13.5px">Qo'shish uchun boshqa o'quvchi yo'q.</p>{% endif %}
+</div>
+
+<div class="card">
+  <div class="hd"><h2>Guruh o'quvchilari ({{ in_group|length }})</h2></div>
+  <div class="bd">
+    {% if in_group %}
+    <table>
+      <thead><tr><th>F.I.O.</th><th>Ota-ona telefoni</th><th></th></tr></thead>
+      <tbody>
+        {% for s in in_group %}
+        <tr>
+          <td><b>{{ s.full_name }}</b></td>
+          <td class="muted">{{ s.parent_phone or "—" }}</td>
+          <td style="text-align:right">
+            <form method="post" action="/owner/groups/{{ group.id }}/students/remove" style="display:inline">
+              <input type="hidden" name="student_id" value="{{ s.id }}">
+              <button class="btn" style="padding:6px 10px;font-size:12px;background:#c2563f">Chiqarish</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Bu guruhda hali o'quvchi yo'q. Yuqoridan qo'shing.</div>{% endif %}
+  </div>
+</div>
+
+<div class="formcard">
+  <h2>Navbat (waitlist)</h2>
+  <p class="muted" style="font-size:12.5px;margin-bottom:10px">Joy bo'lmaganda nomzodlarni yozing. <b>Bazadagi o'quvchi</b>ni tanlang yoki <b>yangi odam</b> ism/telefonini kiriting Joy chiqqanda "→ O'quvchi qilish".</p>
+  {% if request and request.query_params.get('err') == 'noname' %}<div class="err">Ism kiriting yoki bazadan o'quvchi tanlang.</div>{% endif %}
+  <form method="post" action="/owner/groups/{{ group.id }}/waitlist/add">
+    <div style="margin-bottom:8px"><label class="f">Bazadagi o'quvchi (ixtiyoriy)</label>
+      <select name="student_id" onchange="var n=this.value!=='';document.getElementById('wlnew').style.opacity=n?'0.4':'1';">
+        <option value="">— yangi odam (pastda yozing) —</option>
+        {% for s in others %}<option value="{{ s.id }}">{{ s.full_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div id="wlnew" class="frow">
+      <div style="flex:1;min-width:160px"><label class="f">Yangi — F.I.O.</label><input name="full_name"></div>
+      <div><label class="f">Telefon</label><input name="phone" placeholder="+998..."></div>
+      <div style="flex:1;min-width:120px"><label class="f">Izoh</label><input name="note"></div>
+      <div style="display:flex;align-items:end"><button class="btn" type="submit">+ Navbatga</button></div>
+    </div>
+  </form>
+  {% if waitlist %}
+  <table style="margin-top:14px">
+    <thead><tr><th>F.I.O.</th><th>Telefon</th><th>Holat</th><th></th></tr></thead>
+    <tbody>
+      {% for w in waitlist %}
+      <tr>
+        <td><b>{{ w.full_name }}</b>{% if w.note %}<br><span class="muted" style="font-size:12px">{{ w.note }}</span>{% endif %}</td>
+        <td class="muted">{{ w.phone or "—" }}</td>
+        <td>{% if w.student_id %}<span class="pill ok">Bazada bor</span>{% else %}<span class="pill warn">Yangi</span>{% endif %}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <form method="post" action="/owner/groups/{{ group.id }}/waitlist/{{ w.id }}/enroll" style="display:inline" onsubmit="return confirm('Guruhga qo\'shilsinmi?')">
+            <button class="btn" style="padding:6px 10px;font-size:12px">→ O'quvchi qilish</button>
+          </form>
+          <form method="post" action="/owner/groups/{{ group.id }}/waitlist/{{ w.id }}/remove" style="display:inline">
+            <button class="btn" style="padding:6px 10px;font-size:12px;background:#c2563f">✕</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted" style="font-size:13px;margin-top:12px">Navbat bo'sh.</p>{% endif %}
+</div>
+
+{% endblock %}

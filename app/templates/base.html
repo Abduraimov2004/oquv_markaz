@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}O'quv Markaz{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#eef1f0; --panel:#ffffff; --ink:#13211d; --muted:#67817a;
+      --line:#e5eae8; --brand:#0f766e; --brand-2:#0b5c55; --accent:#e0a13c;
+      --danger:#c2563f; --good:#2f9e6f; --sidebar:#0e2a26; --sidebar-line:#1d433d;
+      --radius:14px; --shadow:0 1px 2px rgba(16,40,35,.04),0 8px 24px rgba(16,40,35,.05);
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--ink);
+      -webkit-font-smoothing:antialiased;line-height:1.5}
+    h1,h2,h3,.num{font-family:'Sora',sans-serif;letter-spacing:-.02em}
+    a{color:inherit;text-decoration:none}
+
+    .layout{display:grid;grid-template-columns:248px 1fr;min-height:100vh}
+
+    /* ---- Sidebar ---- */
+    .sidebar{background:var(--sidebar);color:#cfe3de;display:flex;flex-direction:column;
+      position:sticky;top:0;height:100vh}
+    .brand{padding:22px 22px 18px;display:flex;align-items:center;gap:11px;
+      border-bottom:1px solid var(--sidebar-line)}
+    .brand .logo{width:34px;height:34px;border-radius:9px;background:var(--accent);
+      display:grid;place-items:center;font-family:'Sora';font-weight:700;color:#1a1206;font-size:18px}
+    .brand b{font-family:'Sora';font-weight:600;color:#fff;font-size:15.5px;line-height:1.15}
+    .brand span{display:block;font-size:11px;color:#7fa79e;font-weight:500;letter-spacing:.04em}
+    .nav{padding:14px 12px;display:flex;flex-direction:column;gap:3px;flex:1;overflow:auto}
+    .nav .lbl{font-size:10.5px;letter-spacing:.12em;color:#5f857d;text-transform:uppercase;
+      padding:14px 12px 6px;font-weight:700}
+    .nav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;
+      color:#bcd6d0;font-weight:500;font-size:14px;transition:.15s}
+    .nav a .ic{width:18px;text-align:center;font-size:15px;opacity:.9}
+    .nav a:hover{background:#163b35;color:#fff}
+    .nav a.active{background:var(--brand);color:#fff;box-shadow:inset 0 0 0 1px #2a8d83}
+    .nav a.soon{opacity:.45;cursor:default}
+    .nav a.soon:hover{background:transparent;color:#bcd6d0}
+    .nav a.soon em{margin-left:auto;font-style:normal;font-size:9.5px;background:#163b35;
+      color:#8fb3ac;padding:2px 7px;border-radius:20px;letter-spacing:.03em}
+    .side-foot{padding:12px;border-top:1px solid var(--sidebar-line)}
+    .side-foot a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:9px;
+      color:#a9c6c0;font-size:13.5px;font-weight:500}
+    .side-foot a:hover{background:#163b35;color:#fff}
+
+    /* ---- Main ---- */
+    .main{display:flex;flex-direction:column;min-width:0}
+    .topbar{height:64px;background:var(--panel);border-bottom:1px solid var(--line);
+      display:flex;align-items:center;justify-content:space-between;padding:0 28px;
+      position:sticky;top:0;z-index:5}
+    .topbar h1{font-size:19px;font-weight:600}
+    .who{display:flex;align-items:center;gap:10px}
+    .who .av{width:34px;height:34px;border-radius:50%;background:#dceae6;color:var(--brand-2);
+      display:grid;place-items:center;font-family:'Sora';font-weight:700;font-size:14px}
+    .who small{display:block;color:var(--muted);font-size:11.5px}
+    .who b{font-size:13.5px;font-weight:600}
+    .content{padding:26px 28px;max-width:1180px;width:100%}
+
+    /* ---- Stat cards ---- */
+    .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+    .stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+      padding:18px 18px 16px;box-shadow:var(--shadow)}
+    .stat .top{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .stat .tag{font-size:12.5px;color:var(--muted);font-weight:600}
+    .stat .ic{width:32px;height:32px;border-radius:9px;display:grid;place-items:center;font-size:16px;
+      background:#e8f2ef}
+    .stat .num{font-size:30px;font-weight:700;line-height:1}
+    .stat .sub{font-size:12px;color:var(--muted);margin-top:6px}
+    .stat.amber .ic{background:#fbf1dd}
+    .stat.red .ic{background:#f8e6e1}
+    .stat.green .ic{background:#e3f3eb}
+
+    /* ---- Panels / tables ---- */
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow);overflow:hidden}
+    .card .hd{padding:15px 18px;border-bottom:1px solid var(--line);display:flex;
+      align-items:center;justify-content:space-between}
+    .card .hd h2{font-size:15px;font-weight:600}
+    .card .bd{padding:6px 8px}
+    table{width:100%;border-collapse:collapse}
+    th{text-align:left;font-size:11px;letter-spacing:.05em;text-transform:uppercase;
+      color:var(--muted);font-weight:700;padding:10px 12px;border-bottom:1px solid var(--line)}
+    td{padding:11px 12px;font-size:13.5px;border-bottom:1px solid #f1f4f3}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#fafcfb}
+    .pill{display:inline-block;font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:20px}
+    .pill.ok{background:#e3f3eb;color:#1f7a52}
+    .pill.warn{background:#fbf1dd;color:#9a6b14}
+    .pill.bad{background:#f8e6e1;color:#a23c28}
+    .muted{color:var(--muted)}
+    .empty{padding:30px;text-align:center;color:var(--muted);font-size:13.5px}
+    .lvl{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--brand-2)}
+
+    /* ---- Forms ---- */
+    .formcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+      padding:18px;box-shadow:var(--shadow);margin-bottom:18px}
+    .formcard h2{font-size:15px;font-weight:600;margin-bottom:14px}
+    .frow{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:end}
+    label.f{display:block;font-size:12.5px;font-weight:600;color:var(--muted);margin-bottom:6px}
+    input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+      font-family:inherit;font-size:14px;background:#fbfdfc;color:var(--ink)}
+    textarea{min-height:90px;resize:vertical}
+    input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);background:#fff;
+      box-shadow:0 0 0 3px rgba(15,118,110,.1)}
+    input[type=radio],input[type=checkbox]{width:auto;margin-right:5px;accent-color:var(--brand)}
+    .btn{display:inline-flex;align-items:center;gap:7px;background:var(--brand);color:#fff;
+      border:none;padding:11px 18px;border-radius:10px;font-family:'Sora';font-weight:600;
+      font-size:13.5px;cursor:pointer;transition:.15s}
+    .btn:hover{background:var(--brand-2)}
+    .err{background:#f8e6e1;color:#a23c28;padding:11px 14px;border-radius:10px;
+      font-size:13.5px;font-weight:500;margin-bottom:14px}
+    .pagehead{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+    .pagehead p{color:var(--muted);font-size:13.5px;margin-top:2px}
+
+    .menu-btn{display:none;background:none;border:none;font-size:24px;color:var(--ink);
+      cursor:pointer;line-height:1;padding:4px 6px}
+    .nav-overlay{display:none}
+
+    @media (max-width:900px){
+      .layout{grid-template-columns:1fr}
+      .sidebar{position:fixed;top:0;left:0;height:100vh;width:262px;z-index:50;
+        transform:translateX(-100%);transition:transform .25s ease}
+      body.nav-open .sidebar{transform:translateX(0);box-shadow:0 0 40px rgba(0,0,0,.4)}
+      .nav-overlay{display:block;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:40;
+        opacity:0;pointer-events:none;transition:opacity .2s}
+      body.nav-open .nav-overlay{opacity:1;pointer-events:auto}
+      .menu-btn{display:inline-flex}
+      .topbar{padding:0 14px;height:58px}
+      .topbar h1{font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .who small{display:none}
+      .who b{font-size:12.5px}
+      .content{padding:16px 14px}
+      .stats{grid-template-columns:repeat(2,1fr);gap:12px}
+      .grid2{grid-template-columns:1fr}
+      .card .bd{overflow-x:auto}
+      .pagehead{flex-direction:column;align-items:flex-start;gap:8px}
+    }
+    @media (max-width:560px){
+      .stats{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">O</div>
+        <div><b>{{ user.center_name if user.center_name else "O'quv Markaz" }}</b><span>{{ "TIZIM EGASI" if user.role=="superadmin" else ("O'QITUVCHI" if user.role=="teacher" else ("ADMINISTRATOR" if user.role=="reception" else "MARKAZ PANELI")) }}</span></div>
+      </div>
+      <nav class="nav">
+        {% if user.role == "superadmin" %}
+          <div class="lbl">Asosiy</div>
+          <a href="/admin" class="{{ 'active' if active=='dashboard' }}"><span class="ic">▦</span> Bosh sahifa</a>
+          <a href="/admin/centers" class="{{ 'active' if active=='centers' }}"><span class="ic">◳</span> Markazlar</a>
+          <div class="lbl">Boshqaruv</div>
+          <a href="/admin/subscription" class="{{ 'active' if active=='subscription' }}"><span class="ic">₸</span> To'lov / obuna</a>
+          <a href="/admin/health" class="{{ 'active' if active=='health' }}"><span class="ic">♥</span> Tizim sog'lig'i</a>
+          <a href="/admin/news" class="{{ 'active' if active=='news' }}"><span class="ic">✎</span> Yangiliklar</a>
+        {% elif user.role == "teacher" %}
+          <div class="lbl">Asosiy</div>
+          <a href="/teacher" class="{{ 'active' if active=='dashboard' }}"><span class="ic">▦</span> Bosh sahifa</a>
+          <a href="/teacher/attendance" class="{{ 'active' if active=='attendance' }}"><span class="ic">📋</span> Davomat</a>
+          <a href="/teacher/grades" class="{{ 'active' if active=='grades' }}"><span class="ic">📝</span> Baho qo'yish</a>
+          <a href="/teacher/lesson" class="{{ 'active' if active=='lesson' }}"><span class="ic">📚</span> Bugungi dars</a>
+        {% else %}
+          {% set perms = user.perms or [] %}
+          <div class="lbl">Asosiy</div>
+          <a href="/owner" class="{{ 'active' if active=='dashboard' }}"><span class="ic">▦</span> Bosh sahifa</a>
+          {% if user.is_owner or 'students' in perms %}<a href="/owner/students" class="{{ 'active' if active=='students' }}"><span class="ic">☺</span> O'quvchilar</a>{% endif %}
+          {% if user.is_owner or 'groups' in perms %}<a href="/owner/groups" class="{{ 'active' if active=='groups' }}"><span class="ic">◫</span> Guruhlar</a>{% endif %}
+          {% if user.is_owner or 'waitlist' in perms %}<a href="/owner/waitlist" class="{{ 'active' if active=='waitlist' }}"><span class="ic">⏳</span> Navbat</a>{% endif %}
+          {% if user.is_owner or 'risk' in perms %}<a href="/owner/risk" class="{{ 'active' if active=='risk' }}"><span class="ic">⚠</span> Ketish xavfi</a>{% endif %}
+          {% if user.is_owner or 'teachers' in perms %}<a href="/owner/teachers" class="{{ 'active' if active=='teachers' }}"><span class="ic">✓</span> O'qituvchilar</a>{% endif %}
+          <div class="lbl">CRM & jadval</div>
+          {% if user.is_owner or 'leads' in perms %}<a href="/owner/leads" class="{{ 'active' if active=='leads' }}"><span class="ic">◎</span> Lidlar (CRM)</a>{% endif %}
+          {% if user.is_owner or 'schedule' in perms %}<a href="/owner/schedule" class="{{ 'active' if active=='schedule' }}"><span class="ic">▥</span> Dars jadvali</a>{% endif %}
+          {% if user.is_owner or 'announce' in perms %}<a href="/owner/announce" class="{{ 'active' if active=='announce' }}"><span class="ic">📢</span> E'lon</a>{% endif %}
+          <div class="lbl">Pul</div>
+          {% if user.is_owner or 'payments' in perms %}<a href="/owner/payments" class="{{ 'active' if active=='payments' }}"><span class="ic">₸</span> To'lovlar</a>{% endif %}
+          {% if user.is_owner or 'cashbox' in perms %}<a href="/owner/cashbox" class="{{ 'active' if active=='cashbox' }}"><span class="ic">▣</span> Kassa</a>{% endif %}
+          {% if user.is_owner or 'earnings' in perms %}<a href="/owner/earnings" class="{{ 'active' if active=='earnings' }}"><span class="ic">％</span> Maoshlar</a>{% endif %}
+          <div class="lbl">Hisobot & sozlash</div>
+          {% if user.is_owner or 'reports' in perms %}<a href="/owner/reports" class="{{ 'active' if active=='reports' }}"><span class="ic">▤</span> Hisobotlar</a>{% endif %}
+          {% if user.is_owner or 'monitoring' in perms %}<a href="/owner/monitoring" class="{{ 'active' if active=='monitoring' }}"><span class="ic">◉</span> O'qituvchi nazorati</a>{% endif %}
+          {% if user.is_owner %}<a href="/owner/settings" class="{{ 'active' if active=='settings' }}"><span class="ic">⚙</span> Sozlamalar</a>{% endif %}
+        {% endif %}
+      </nav>
+      <div class="side-foot">
+        <a href="/logout"><span class="ic">⎋</span> Chiqish</a>
+      </div>
+    </aside>
+
+    <div class="nav-overlay" onclick="document.body.classList.remove('nav-open')"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <button class="menu-btn" onclick="document.body.classList.toggle('nav-open')" aria-label="Menyu">☰</button>
+          <h1>{% block heading %}Bosh sahifa{% endblock %}</h1>
+        </div>
+        <div class="who">
+          <div style="text-align:right">
+            <b>{{ user.name }}</b>
+            <small>{{ "Tizim egasi" if user.role=="superadmin" else ("O'qituvchi" if user.role=="teacher" else ("Administrator" if user.role=="reception" else "Markaz egasi")) }}</small>
+          </div>
+          <div class="av">{{ user.name[0]|upper }}</div>
+        </div>
+      </header>
+      <div class="content">
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </div>
+<script>
+  // Saqlash/o'zgartirishdan keyin sahifa boshiga sakramasin — joyida qolsin
+  (function () {
+    var key = 'scroll:' + location.pathname;
+    document.addEventListener('submit', function () {
+      try { sessionStorage.setItem(key, String(window.scrollY)); } catch (e) {}
+    }, true);
+    window.addEventListener('pageshow', function () {
+      try {
+        var y = sessionStorage.getItem(key);
+        if (y !== null) { window.scrollTo(0, parseInt(y, 10) || 0); sessionStorage.removeItem(key); }
+      } catch (e) {}
+    });
+  })();
+</script>
+</body>
+</html>

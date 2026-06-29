@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}To'lov / obuna{% endblock %}
+{% block heading %}To'lov / obuna{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Markazlar obunasini boshqaring: muddatni uzaytiring yoki vaqtincha to'xtating.</p></div></div>
+
+<div class="card">
+  <div class="hd"><h2>Markazlar ({{ centers|length }})</h2></div>
+  <div class="bd">
+    {% if centers %}
+    <table>
+      <thead><tr><th>Markaz</th><th>Obuna tugashi</th><th>Holat</th><th></th></tr></thead>
+      <tbody>
+        {% for c in centers %}
+        <tr>
+          <td><b>{{ c.name }}</b></td>
+          <td>
+            {% if c.sub_state=="none" %}<span class="muted">belgilanmagan</span>
+            {% elif c.sub_state=="expired" %}<span class="pill bad">{{ c.subscription_until }} (tugagan)</span>
+            {% elif c.sub_state=="soon" %}<span class="pill warn">{{ c.subscription_until }}</span>
+            {% else %}<span class="pill ok">{{ c.subscription_until }}</span>{% endif %}
+          </td>
+          <td>{% if c.status=="active" %}<span class="pill ok">faol</span>{% else %}<span class="pill bad">to'xtatilgan</span>{% endif %}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <form method="post" action="/admin/subscription/{{ c.id }}/extend" style="display:inline">
+              <button class="btn" style="padding:7px 12px;font-size:12.5px">+1 oy</button>
+            </form>
+            <form method="post" action="/admin/subscription/{{ c.id }}/toggle" style="display:inline">
+              <button class="btn" style="padding:7px 12px;font-size:12.5px;background:{{ '#c2563f' if c.status=='active' else '#2f9e6f' }}">{{ "To'xtatish" if c.status=="active" else "Faollashtirish" }}</button>
+            </form>
+            <a href="/admin/centers/{{ c.id }}" class="btn" style="padding:7px 12px;font-size:12.5px;background:#5b7a86">Boshqarish →</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali markaz yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}O'qituvchilar{% endblock %}
+{% block heading %}O'qituvchilar{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>O'qituvchini qo'shing. Parol, foiz va oylik berish — har o'qituvchining o'z panelida.</p></div></div>
+
+<div class="formcard">
+  <h2>Yangi o'qituvchi</h2>
+  <form method="post" action="/owner/teachers/add">
+    <div class="frow">
+      <div><label class="f">F.I.O.</label><input name="full_name" placeholder="Karimova Dilnoza" required></div>
+      <div><label class="f">Telefon (login)</label><input name="phone" placeholder="+998 90 ..."></div>
+      <div><label class="f">Fan</label><input name="subject" placeholder="Ingliz tili"></div>
+      <div><label class="f">Parol</label><input name="password" type="text" placeholder="parol123"></div>
+      <div><label class="f">Foiz (%)</label><input name="commission_percent" type="number" step="0.1" placeholder="40"></div>
+      <div><button class="btn" type="submit">+ Qo'shish</button></div>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="hd" style="gap:10px;flex-wrap:wrap">
+    <h2>Ro'yxat ({{ teachers|length }})</h2>
+    <form method="get" action="/owner/teachers" style="margin-left:auto;display:flex;gap:8px">
+      <input name="q" value="{{ q }}" placeholder="🔍 Ism / fan" style="width:200px">
+      <button class="btn" type="submit">Qidirish</button>
+      {% if q %}<a href="/owner/teachers" class="btn" style="background:#8a99a0">Tozalash</a>{% endif %}
+    </form>
+  </div>
+  <div class="bd">
+    {% if teachers %}
+    <table>
+      <thead><tr><th>F.I.O.</th><th>Fan</th><th>Telefon</th><th>Foiz</th><th>Panel</th><th></th></tr></thead>
+      <tbody>
+        {% for t in teachers %}
+        <tr>
+          <td><b>{{ t.full_name }}</b></td>
+          <td class="muted">{{ t.subject or "—" }}</td>
+          <td class="muted">{{ t.phone or "—" }}</td>
+          <td>{{ t.commission_percent }}%</td>
+          <td>{% if t.has_login %}<span class="pill ok">kira oladi</span>{% else %}<span class="pill warn">parol yo'q</span>{% endif %}</td>
+          <td style="text-align:right"><a href="/owner/teachers/{{ t.id }}" class="btn" style="padding:6px 12px;font-size:12.5px">Ochish →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali o'qituvchi yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Markaz ma'lumotlari{% endblock %}
+{% block heading %}Markaz ma'lumotlari{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Markaz nomi va ish vaqti.</p></div><a href="/owner/settings" class="muted" style="font-size:13px">← Sozlamalar</a></div>
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+
+<div class="formcard">
+  <form method="post" action="/owner/settings/general">
+    <div class="frow">
+      <div><label class="f">Markaz nomi</label><input name="name" value="{{ center.name or '' }}" required></div>
+      <div><label class="f">Ish vaqti</label><input name="working_hours" value="{{ settings.working_hours or '' }}" placeholder="09:00 - 19:00"></div>
+    </div>
+    <div style="margin-top:14px"><button class="btn" type="submit">Saqlash</button></div>
+  </form>
+</div>
+
+{% endblock %}

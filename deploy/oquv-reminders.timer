@@ -1,0 +1,9 @@
+[Unit]
+Description=Har kuni 09:00 da eslatmalarni yuborish
+
+[Timer]
+OnCalendar=*-*-* 09:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

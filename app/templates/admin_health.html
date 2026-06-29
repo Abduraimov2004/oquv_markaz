@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Tizim sog'lig'i{% endblock %}
+{% block heading %}Tizim sog'lig'i{% endblock %}
+{% block content %}
+
+<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+  <div class="stat {{ 'green' if db_ok else 'red' }}">
+    <div class="top"><span class="tag">Baza</span><span class="ic">{{ '✓' if db_ok else '✕' }}</span></div>
+    <div class="num" style="font-size:20px">{{ 'Ulangan' if db_ok else 'Xato' }}</div>
+  </div>
+  <div class="stat">
+    <div class="top"><span class="tag">Python</span><span class="ic">⌘</span></div>
+    <div class="num" style="font-size:20px">{{ info.python }}</div><div class="sub">{{ info.platform }}</div>
+  </div>
+  <div class="stat">
+    <div class="top"><span class="tag">Server vaqti</span><span class="ic">🕒</span></div>
+    <div class="num" style="font-size:15px">{{ info.time }}</div>
+  </div>
+</div>
+
+{% if res %}
+<div class="stats" style="grid-template-columns:repeat(2,1fr)">
+  <div class="stat"><div class="top"><span class="tag">CPU yuklamasi</span><span class="ic">▮</span></div><div class="num">{{ res.cpu }}%</div></div>
+  <div class="stat"><div class="top"><span class="tag">RAM</span><span class="ic">▤</span></div><div class="num">{{ res.ram }}%</div></div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="hd"><h2>Bazadagi yozuvlar soni</h2></div>
+  <div class="bd">
+    <table>
+      <thead><tr><th>Jadval</th><th>Yozuvlar</th></tr></thead>
+      <tbody>
+        {% for tbl, n in counts.items() %}
+        <tr><td><b>{{ tbl }}</b></td><td>{{ n }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if not counts %}<div class="empty">Bazaga ulanib bo'lmadi.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Markazlar{% endblock %}
+{% block heading %}Markazlar{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Yangi markaz qo'shing — egasi uchun login (telefon + parol) avtomatik yaratiladi. Markaz nomiga bosib to'liq boshqarasiz.</p></div></div>
+
+{% if error %}<div class="err">Bu telefon raqami allaqachon ro'yxatda.</div>{% endif %}
+
+<div class="formcard">
+  <h2>Yangi markaz</h2>
+  <form method="post" action="/admin/centers/add">
+    <div class="frow">
+      <div><label class="f">Markaz nomi</label><input name="name" placeholder="Bilim Maskani" required></div>
+      <div><label class="f">Egasi (direktor)</label><input name="owner_name" placeholder="Toshmatov Aziz"></div>
+      <div><label class="f">Egasi telefoni (login)</label><input name="owner_phone" placeholder="+998 90 ..." required></div>
+      <div><label class="f">Boshlang'ich parol</label><input name="owner_password" type="text" placeholder="parol123" required></div>
+      <div><label class="f">Obuna narxi (oyiga)</label><input name="monthly_fee" type="number" placeholder="200000"></div>
+      <div><label class="f">Obuna tugashi</label><input name="subscription_until" type="date"></div>
+      <div><button class="btn" type="submit">+ Qo'shish</button></div>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>Barcha markazlar ({{ centers|length }})</h2></div>
+  <div class="bd">
+    {% if centers %}
+    <table>
+      <thead><tr><th>Markaz</th><th>Egasi</th><th>Telefon</th><th>Obuna tugaydi</th><th>Holat</th><th></th></tr></thead>
+      <tbody>
+        {% for c in centers %}
+        <tr>
+          <td><b>{{ c.name }}</b></td>
+          <td class="muted">{{ c.owner_name or "—" }}</td>
+          <td class="muted">{{ c.phone or "—" }}</td>
+          <td>
+            {{ c.subscription_until or "—" }}
+            {% if c.sub_state == "expired" %}<span class="pill bad" style="margin-left:4px">tugagan</span>
+            {% elif c.sub_state == "soon" %}<span class="pill warn" style="margin-left:4px">{{ c.days_left }} kun</span>
+            {% elif c.sub_state == "ok" %}<span class="pill ok" style="margin-left:4px">{{ c.days_left }} kun</span>{% endif %}
+          </td>
+          <td>{% if c.status=="active" %}<span class="pill ok">faol</span>{% else %}<span class="pill bad">to'xtatilgan</span>{% endif %}</td>
+          <td style="text-align:right"><a href="/admin/centers/{{ c.id }}" class="btn" style="padding:6px 12px;font-size:12.5px">Ochish →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali markaz yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

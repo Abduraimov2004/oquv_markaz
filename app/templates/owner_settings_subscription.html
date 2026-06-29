@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Obuna{% endblock %}
+{% block heading %}Obuna{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p>Markazingiz obunasi holati. To'lovni tizim egasiga qilasiz — u qabul qilgach bu yerda yangilanadi.</p></div>
+  <a href="/owner/settings" class="muted" style="font-size:13px">← Sozlamalar</a>
+</div>
+
+<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+  <div class="stat {{ 'red' if days is not none and days < 0 else ('amber' if days is not none and days <= 7 else '') }}">
+    <div class="top"><span class="tag">Obuna tugaydi</span><span class="ic">₸</span></div>
+    <div class="num" style="font-size:18px">{{ center.subscription_until or "—" }}</div>
+    <div class="sub">{% if days is not none %}{% if days < 0 %}{{ -days }} kun oldin tugagan{% else %}{{ days }} kun qoldi{% endif %}{% else %}belgilanmagan{% endif %}</div>
+  </div>
+  <div class="stat"><div class="top"><span class="tag">Oylik narx</span><span class="ic">◷</span></div><div class="num" style="font-size:18px">{{ "{:,.0f}".format(monthly_fee).replace(",", " ") }}</div><div class="sub">so'm / oy</div></div>
+  <div class="stat green"><div class="top"><span class="tag">Jami to'langan</span><span class="ic">✓</span></div><div class="num" style="font-size:18px">{{ "{:,.0f}".format(total).replace(",", " ") }}</div><div class="sub">so'm</div></div>
+</div>
+
+{% if days is not none and days < 0 %}
+<div class="err">⚠ Obuna muddati tugagan. Tizim to'xtatilishi mumkin — iltimos to'lovni amalga oshiring.</div>
+{% elif days is not none and days <= 7 %}
+<div class="err" style="background:#fbf1dd;color:#9a6b14">Obuna tugashiga {{ days }} kun qoldi.</div>
+{% endif %}
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ To'lov qabul qilindi — obuna {{ center.subscription_until }} gacha uzaytirildi.</div>{% endif %}
+{% if err=="2" %}<div class="err">Obuna narxi hali belgilanmagan. Tizim egasiga murojaat qiling.</div>{% elif err=="nomoney" %}<div class="err">⛔ Hisobda mablag' yetarli emas! Balans: <b>{{ "{:,.0f}".format((request.query_params.get('bal') or 0)|int).replace(",", " ") }}</b> so'm, kerak: <b>{{ "{:,.0f}".format((request.query_params.get('need') or 0)|int).replace(",", " ") }}</b> so'm. To'lov amalga oshmadi.</div>{% elif err %}<div class="err">Xato yuz berdi. Qaytadan urinib ko'ring.</div>{% endif %}
+
+{% if monthly_fee > 0 %}
+<div class="formcard">
+  <h2>Obunani to'lash</h2>
+  <form method="post" action="/owner/settings/subscription/pay">
+    <div class="frow">
+      <div><label class="f">Necha oyga</label>
+        <select name="months" id="subMonths" onchange="calcSub()">
+          {% for n in [1,2,3,6,12] %}<option value="{{ n }}">{{ n }} oy</option>{% endfor %}
+        </select>
+      </div>
+      <div><label class="f">To'lov summasi</label><input id="subAmt" disabled style="background:#f4f7f6;font-weight:700"></div>
+      <div><label class="f">Qaysi hisobdan</label>
+        <select name="account_id">
+          <option value="">— tanlang —</option>
+          {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><button class="btn" type="submit" onclick="return confirm('Obuna uchun to\'lov qilinsinmi?')">To'lash + uzaytirish</button></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:10px">Oylik narx: <b>{{ "{:,.0f}".format(monthly_fee).replace(",", " ") }}</b> so'm. To'langach obuna avtomatik uzayadi, hisobdan yechiladi.</p>
+  </form>
+</div>
+<script>
+var SUB_FEE={{ monthly_fee|int }};
+function calcSub(){
+  var n=parseInt(document.getElementById('subMonths').value||'1');
+  var a=document.getElementById('subAmt');
+  a.value=(SUB_FEE*n).toLocaleString('ru-RU')+" so'm";
+}
+calcSub();
+</script>
+{% endif %}
+
+<div class="card">
+  <div class="hd"><h2>To'lov tarixi</h2></div>
+  <div class="bd">
+    {% if history %}
+    <table>
+      <thead><tr><th>Sana</th><th>Summa</th><th>Oy</th><th>Yangi tugash</th><th>Izoh</th></tr></thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td class="muted">{{ (h.paid_at or "")[:10] }}</td>
+          <td><b>{{ "{:,.0f}".format(h.amount|float).replace(",", " ") }} so'm</b></td>
+          <td>{{ h.months }} oy</td>
+          <td class="muted">{{ h.until or "—" }}</td>
+          <td class="muted">{{ h.note or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali to'lov yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

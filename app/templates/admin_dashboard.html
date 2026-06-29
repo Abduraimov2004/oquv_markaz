@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Bosh sahifa — Tizim{% endblock %}
+{% block heading %}Bosh sahifa{% endblock %}
+{% block content %}
+
+<div class="stats">
+  <div class="stat">
+    <div class="top"><span class="tag">Markazlar</span><span class="ic">◳</span></div>
+    <div class="num">{{ stats.centers }}</div>
+    <div class="sub">{{ stats.active }} faol · {{ stats.suspended }} to'xtatilgan</div>
+  </div>
+  <div class="stat green">
+    <div class="top"><span class="tag">Jami o'quvchi</span><span class="ic">☺</span></div>
+    <div class="num">{{ stats.students }}</div>
+    <div class="sub">barcha markazlarda</div>
+  </div>
+  <div class="stat">
+    <div class="top"><span class="tag">Jami o'qituvchi</span><span class="ic">✓</span></div>
+    <div class="num">{{ stats.teachers }}</div>
+    <div class="sub">barcha markazlarda</div>
+  </div>
+  <div class="stat amber">
+    <div class="top"><span class="tag">Obuna tushumi · shu oy</span><span class="ic">₸</span></div>
+    <div class="num" style="font-size:24px">{{ "{:,.0f}".format(stats.revenue).replace(",", " ") }}</div>
+    <div class="sub">so'm (markazlardan)</div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="hd"><h2>So'nggi markazlar</h2><a href="/admin/centers" class="muted" style="font-size:12.5px">Hammasi →</a></div>
+    <div class="bd">
+      {% if centers %}
+      <table>
+        <thead><tr><th>Markaz</th><th>Egasi</th><th>Holat</th><th></th></tr></thead>
+        <tbody>
+          {% for c in centers %}
+          <tr>
+            <td><b>{{ c.name }}</b></td>
+            <td class="muted">{{ c.owner_name or "—" }}</td>
+            <td>{% if c.status=="active" %}<span class="pill ok">faol</span>{% else %}<span class="pill bad">to'xtatilgan</span>{% endif %}</td>
+            <td style="text-align:right"><a href="/admin/centers/{{ c.id }}" class="muted" style="font-size:12.5px">Ochish →</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">Hali markaz qo'shilmagan. <a href="/admin/centers" style="color:var(--brand)">Markaz qo'shish →</a></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="hd"><h2>Obunasi tugayapti / tugagan</h2><span class="muted" style="font-size:12.5px">diqqat</span></div>
+    <div class="bd">
+      {% if ending %}
+      <table>
+        <thead><tr><th>Markaz</th><th>Sana</th><th></th></tr></thead>
+        <tbody>
+          {% for c in ending %}
+          <tr>
+            <td><b>{{ c.name }}</b></td>
+            <td>{% if c.sub_state=="expired" %}<span class="pill bad">{{ c.subscription_until }} (tugagan)</span>{% else %}<span class="pill warn">{{ c.subscription_until }} ({{ c.days_left }} kun)</span>{% endif %}</td>
+            <td style="text-align:right"><a href="/admin/centers/{{ c.id }}" class="btn" style="padding:5px 10px;font-size:12px">To'lov →</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">Yaqin orada tugaydigan obuna yo'q ✓</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

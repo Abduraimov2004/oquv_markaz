@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Kassa{% endblock %}
+{% block heading %}Kassa{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+    <a href="/owner/cashbox?month={{ prev_month }}" class="btn" style="padding:6px 12px;background:#6b8a85">←</a>
+    <b style="font-family:'Sora';font-size:16px">{{ month_label }}</b>
+    <a href="/owner/cashbox?month={{ next_month }}" class="btn" style="padding:6px 12px;background:#6b8a85">→</a>
+    <span class="muted" style="font-size:13px;margin-left:6px">kirim − chiqim = sof foyda</span>
+  </div>
+</div>
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+{% if err == "nomoney" %}<div class="err">⛔ Hisobda mablag' yetarli emas! Balans: <b>{{ "{:,.0f}".format((request.query_params.get('bal') or 0)|int).replace(",", " ") }}</b> so'm, kerak: <b>{{ "{:,.0f}".format((request.query_params.get('need') or 0)|int).replace(",", " ") }}</b> so'm. Xarajat amalga oshmadi.</div>
+{% elif err %}<div class="err">Saqlashda xato. Qaytadan urinib ko'ring.</div>{% endif %}
+
+<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+  <div class="stat green"><div class="top"><span class="tag">Kirim</span><span class="ic">↓</span></div><div class="num" style="font-size:22px">{{ "{:,.0f}".format(income).replace(",", " ") }}</div><div class="sub">so'm · to'lovlar</div></div>
+  <div class="stat red"><div class="top"><span class="tag">Chiqim</span><span class="ic">↑</span></div><div class="num" style="font-size:22px">{{ "{:,.0f}".format(total_out).replace(",", " ") }}</div><div class="sub">xarajat + oylik</div></div>
+  <div class="stat {{ 'amber' if profit < 0 else '' }}"><div class="top"><span class="tag">Sof foyda</span><span class="ic">★</span></div>
+    <div class="num" style="font-size:22px;color:{{ 'var(--danger)' if profit < 0 else 'var(--good)' }}">{{ "{:,.0f}".format(profit).replace(",", " ") }}</div>
+    <div class="sub">so'm · shu oy</div></div>
+</div>
+
+<div class="card" style="margin-top:6px">
+  <div class="hd" style="gap:10px;flex-wrap:wrap">
+    <h2>Hisoblar (balans)</h2>
+    <div style="margin-left:auto;text-align:right">
+      <div class="muted" style="font-size:12px">Jami balans</div>
+      <b style="font-family:'Sora';font-size:20px;color:var(--brand)">{{ "{:,.0f}".format(total_balance).replace(",", " ") }} so'm</b>
+    </div>
+  </div>
+  <div class="bd">
+    {% if acc_active %}
+    <div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin:0 0 14px">
+      {% for a in acc_active %}
+      <div class="stat">
+        <div class="top">
+          <span class="tag">{{ {'cash':'Naqd','card':'Karta','click':'Click','payme':'Payme'}.get(a.kind,'Hisob') }}</span>
+          <form method="post" action="/owner/cashbox/account/{{ a.id }}/delete" style="margin:0" onsubmit="return confirm('Bu hisob nofaol qilinsinmi?')"><button class="btn" style="padding:2px 8px;font-size:12px;background:#cbb">×</button></form>
+        </div>
+        <div style="font-family:'Sora';font-weight:700;font-size:15px;margin:2px 0">{{ a.name }}</div>
+        {% if a.card_number %}<div class="muted" style="font-size:12px;letter-spacing:1px">{{ a.card_number }}</div>{% endif %}
+        <div class="num" style="font-size:18px;margin-top:6px;color:{{ 'var(--danger)' if a.balance < 0 else 'var(--good)' }}">{{ "{:,.0f}".format(a.balance).replace(",", " ") }}</div>
+        <div class="sub">so'm</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty" style="margin-bottom:14px">Hali hisob qo'shilmagan. Pastdagi shakl orqali kartangiz yoki naqd kassangizni qo'shing.</div>
+    {% endif %}
+
+    <details>
+      <summary style="cursor:pointer;font-weight:600;color:var(--brand)">+ Yangi hisob qo'shish (karta / naqd / Click / Payme)</summary>
+      <form method="post" action="/owner/cashbox/account/add" style="margin-top:12px">
+        <div class="frow">
+          <div><label class="f">Nomi</label><input name="name" placeholder="Uzcard / Naqd kassa" required></div>
+          <div><label class="f">Turi</label>
+            <select name="kind">
+              <option value="cash">Naqd</option><option value="card">Karta</option>
+              <option value="click">Click</option><option value="payme">Payme</option><option value="other">Boshqa</option>
+            </select>
+          </div>
+          <div><label class="f">Karta raqami (ixtiyoriy)</label><input name="card_number" placeholder="8600 ХХХХ ХХХХ ХХХХ"></div>
+          <div><label class="f">Hozirgi qoldiq</label><input name="opening_balance" type="number" placeholder="0"></div>
+          <div><button class="btn" type="submit">+ Qo'shish</button></div>
+        </div>
+        <p class="muted" style="font-size:12px;margin-top:8px">"Hozirgi qoldiq" — hozir kartada/kassada bor pul. Keyingi kirim-chiqimlar shunga qo'shilib boradi.</p>
+      </form>
+    </details>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="formcard" style="margin:0">
+    <h2>Chiqim qo'shish</h2>
+    <form method="post" action="/owner/cashbox/expense/add">
+      <input type="hidden" name="back_month" value="{{ sel_month }}">
+      <div class="frow">
+        <div><label class="f">Turi</label>
+          <select name="category">
+            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+        <div><label class="f">Summa (so'm)</label><input name="amount" type="number" placeholder="1500000" required></div>
+        <div><label class="f">Qaysi hisobdan</label>
+          <select name="account_id">
+            <option value="">— tanlang —</option>
+            {% for a in acc_active %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div><label class="f">Sana</label><input name="spent_at" type="date"></div>
+      </div>
+      <div style="margin-top:10px"><label class="f">Izoh</label><input name="note" placeholder="masalan: noyabr ijarasi"></div>
+      <div style="margin-top:12px"><button class="btn" type="submit">+ Qo'shish</button></div>
+    </form>
+    <p class="muted" style="font-size:12px;margin-top:10px">O'qituvchilar oyligi (O'qituvchilar ulushi bo'limidan berilgan) avtomatik chiqimga qo'shiladi.</p>
+  </div>
+
+  <div class="card" style="margin:0">
+    <div class="hd"><h2>Chiqim taqsimoti</h2></div>
+    <div class="bd" style="padding:14px 18px">
+      {% if cats %}
+      {% for name, val in cats %}
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px">
+          <span style="font-weight:600">{{ name }}</span>
+          <span class="muted">{{ "{:,.0f}".format(val).replace(",", " ") }} so'm</span>
+        </div>
+        <div style="height:8px;background:#eef2f1;border-radius:6px;overflow:hidden">
+          <div style="height:100%;width:{{ (val / cat_max * 100) if cat_max else 0 }}%;background:var(--brand);border-radius:6px"></div>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}<div class="empty">Hali chiqim yo'q.</div>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:18px">
+  <div class="hd"><h2>Chiqimlar ro'yxati · {{ month_label }}</h2></div>
+  <div class="bd">
+    {% if expenses %}
+    <table>
+      <thead><tr><th>Sana</th><th>Turi</th><th>Izoh</th><th>Summa</th><th></th></tr></thead>
+      <tbody>
+        {% for e in expenses %}
+        <tr>
+          <td class="muted">{{ (e.spent_at or "")[:10] }}</td>
+          <td><span class="pill warn">{{ e.category or "Boshqa" }}</span></td>
+          <td class="muted">{{ e.note or "—" }}</td>
+          <td><b>{{ "{:,.0f}".format(e.amount|float).replace(",", " ") }} so'm</b></td>
+          <td style="text-align:right">
+            <form method="post" action="/owner/cashbox/expense/{{ e.id }}/delete" style="margin:0" onsubmit="return confirm('O\'chirilsinmi?')">
+              <button class="btn" style="padding:5px 10px;font-size:12px;background:#c2563f">×</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Shu oy chiqim qo'shilmagan.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

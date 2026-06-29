@@ -1,0 +1,27 @@
+# systemd unit — server o'chsa/qayta yuklansa avtomatik ishga tushadi.
+# O'rnatish:
+#   sudo cp deploy/oquv-markaz.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now oquv-markaz
+#   sudo systemctl status oquv-markaz      # holatini ko'rish
+#   journalctl -u oquv-markaz -f           # loglarni real vaqtda
+# Quyidagi YO'L va USER'ni o'zingiznikiga moslang.
+
+[Unit]
+Description=Oquv Markaz SaaS (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/oquv_markaz
+EnvironmentFile=/home/ubuntu/oquv_markaz/.env
+ExecStart=/home/ubuntu/oquv_markaz/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --workers 2
+Restart=always
+RestartSec=3
+# Xavfsizlik (ixtiyoriy, lekin tavsiya etiladi)
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

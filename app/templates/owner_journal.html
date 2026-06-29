@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Jurnal{% endblock %}
+{% block heading %}Jurnal{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Guruhning oylik davomat va baho jadvali. Ustunlar — yozuv bo'lgan kunlar.</p></div></div>
+
+<div class="card">
+  <div class="hd" style="gap:10px;flex-wrap:wrap">
+    <div style="display:flex;gap:6px">
+      <a href="/owner/journal?group={{ sel }}&month={{ sel_month }}&kind=attendance"
+         class="btn" style="padding:7px 14px;font-size:13px;{{ '' if kind=='attendance' else 'background:#8a99a0' }}">📋 Davomat</a>
+      <a href="/owner/journal?group={{ sel }}&month={{ sel_month }}&kind=grades"
+         class="btn" style="padding:7px 14px;font-size:13px;{{ '' if kind=='grades' else 'background:#8a99a0' }}">📝 Baholar</a>
+    </div>
+    <form method="get" action="/owner/journal" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <a href="/owner/journal?group={{ sel }}&month={{ prev_month }}&kind={{ kind }}" class="btn" style="background:#8a99a0;padding:7px 11px">‹</a>
+      <select name="month" onchange="this.form.submit()" style="width:auto;min-width:140px">
+        <option value="{{ sel_month }}" selected>{{ month_label }}</option>
+      </select>
+      <a href="/owner/journal?group={{ sel }}&month={{ next_month }}&kind={{ kind }}" class="btn" style="background:#8a99a0;padding:7px 11px">›</a>
+      <select name="group" onchange="this.form.submit()" style="width:auto;min-width:160px">
+        {% for g in groups %}<option value="{{ g.id }}" {{ 'selected' if sel==g.id }}>{{ g.name }}</option>{% endfor %}
+      </select>
+    </form>
+  </div>
+  <div class="bd" style="overflow-x:auto">
+    {% if rows and days %}
+    <table class="jtbl">
+      <thead>
+        <tr>
+          <th style="position:sticky;left:0;background:#fff;z-index:2">O'quvchi</th>
+          {% for d in days %}<th style="text-align:center;min-width:34px">{{ d }}</th>{% endfor %}
+          <th style="text-align:center">{{ 'Davomat' if kind=='attendance' else 'O‘rtacha' }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td style="position:sticky;left:0;background:#fff;z-index:1"><b>{{ r.name }}</b></td>
+          {% for c in r.cells %}
+          <td style="text-align:center;padding:6px">
+            {% if kind == 'attendance' %}
+              {% if c == 'present' %}<span class="jc jp" title="Keldi">✓</span>
+              {% elif c == 'late' %}<span class="jc jl" title="Kechikdi">K</span>
+              {% elif c == 'excused' %}<span class="jc je" title="Sababli">S</span>
+              {% elif c == 'absent' %}<span class="jc ja" title="Kelmadi">×</span>
+              {% else %}<span class="muted">·</span>{% endif %}
+            {% else %}
+              {% if c is not none %}<span class="jg g{{ c }}">{{ c }}</span>{% else %}<span class="muted">·</span>{% endif %}
+            {% endif %}
+          </td>
+          {% endfor %}
+          <td style="text-align:center"><b>{{ r.summary }}</b></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">Bu oy uchun {{ 'davomat' if kind=='attendance' else 'baho' }} yozuvi yo'q.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% if kind == 'attendance' %}
+<p class="muted" style="font-size:12.5px;margin-top:12px">
+  <span class="jc jp">✓</span> Keldi &nbsp; <span class="jc jl">K</span> Kechikdi &nbsp;
+  <span class="jc je">S</span> Sababli &nbsp; <span class="jc ja">×</span> Kelmadi
+</p>
+{% endif %}
+
+<style>
+  .jtbl th, .jtbl td{border-bottom:1px solid #f1f4f3;white-space:nowrap}
+  .jc{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;font-size:12px;font-weight:700}
+  .jp{background:#e6f3eb;color:#1f7a52}
+  .jl{background:#fbf1dd;color:#9a6b14}
+  .je{background:#e7eefb;color:#2f4d8a}
+  .ja{background:#fde9e4;color:#a23c28}
+  .jg{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;font-size:12.5px;font-weight:700;font-family:'Sora'}
+  .g5{background:#e6f3eb;color:#1f7a52}.g4{background:#eef4f3;color:#3a5560}
+  .g3{background:#fbf1dd;color:#9a6b14}.g2{background:#fde9e4;color:#a23c28}
+</style>
+
+{% endblock %}

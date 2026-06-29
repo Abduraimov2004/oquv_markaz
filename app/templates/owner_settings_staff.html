@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Xodimlar{% endblock %}
+{% block heading %}Xodimlar (administrator){% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p>Administrator (qabulxona) qo'shing — u o'quvchi, lid, to'lov va davomat bilan ishlay oladi, lekin moliyaviy/sozlama bo'limlariga kira olmaydi.</p></div>
+  <a href="/owner/settings" class="muted" style="font-size:13px">← Sozlamalar</a>
+</div>
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+{% if dup %}<div class="err">⚠ Bu telefon allaqachon ro'yxatda.</div>{% endif %}
+
+<div class="formcard">
+  <h2>Yangi administrator</h2>
+  <form method="post" action="/owner/settings/staff/add">
+    <div class="frow">
+      <div><label class="f">F.I.O.</label><input name="full_name" placeholder="Qabulxona xodimi" required></div>
+      <div><label class="f">Telefon (login)</label><input name="phone" placeholder="+998 90 ..." required></div>
+      <div><label class="f">Parol</label><input name="password" type="text" placeholder="parol123" required></div>
+      <div><button class="btn" type="submit">+ Qo'shish</button></div>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>Administratorlar ({{ staff|length }})</h2></div>
+  <div class="bd">
+    {% if staff %}
+    <table>
+      <thead><tr><th>F.I.O.</th><th>Telefon</th><th>Parol yangilash</th><th></th></tr></thead>
+      <tbody>
+        {% for x in staff %}
+        <tr>
+          <td><b>{{ x.full_name or "—" }}</b></td>
+          <td class="muted">{{ x.phone }}</td>
+          <td>
+            <form method="post" action="/owner/settings/staff/{{ x.id }}/password" style="display:flex;gap:6px">
+              <input name="password" type="text" placeholder="yangi parol" style="width:140px;padding:6px 8px;font-size:13px" required>
+              <button class="btn" style="padding:7px 12px;font-size:12.5px">Saqlash</button>
+            </form>
+          </td>
+          <td style="text-align:right">
+            <a href="/owner/settings/staff/{{ x.id }}/perms" class="btn" style="padding:6px 10px;font-size:12px;background:#5b7a86;margin-right:4px">Huquqlar</a>
+            <form method="post" action="/owner/settings/staff/{{ x.id }}/delete" style="margin:0;display:inline" onsubmit="return confirm('O\'chirilsinmi?')">
+              <button class="btn" style="padding:6px 10px;font-size:12px;background:#c2563f">O'chirish</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali administrator yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Reyting tarixi{% endblock %}
+{% block heading %}Reyting tarixi{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Har oyning eng faol TOP-3 guruhi avtomatik saqlanadi. Har oy boshida reyting noldan boshlanadi.</p></div></div>
+
+{% if months %}
+{% for m in months %}
+<div class="card" style="margin-bottom:16px">
+  <div class="hd"><h2>{{ m.label }}</h2></div>
+  <div class="bd">
+    <table>
+      <thead><tr><th>O'rin</th><th>Guruh</th><th>O'qituvchi</th><th>O'rtacha baho</th><th>Davomat</th></tr></thead>
+      <tbody>
+        {% for w in m['items'] %}
+        <tr>
+          <td>
+            {% if w.rank == 1 %}<span class="medal m1">🥇 1</span>
+            {% elif w.rank == 2 %}<span class="medal m2">🥈 2</span>
+            {% else %}<span class="medal m3">🥉 3</span>{% endif %}
+          </td>
+          <td><b>{{ w.group_name }}</b></td>
+          <td class="muted">{{ w.teacher or "—" }}</td>
+          <td><b>{{ w.avg_grade }}</b></td>
+          <td>{{ w.attendance }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="card"><div class="empty">Hali arxiv yo'q. Birinchi oy tugagach, o'tgan oyning TOP-3 g'oliblari shu yerda saqlanadi.</div></div>
+{% endif %}
+
+<style>
+  .medal{font-weight:700;font-family:'Sora'}
+</style>
+
+{% endblock %}

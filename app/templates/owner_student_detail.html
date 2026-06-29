@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}{{ student.full_name }}{% endblock %}
+{% block heading %}O'quvchi: {{ student.full_name }}{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p>{{ student.parent_phone or "telefon yo'q" }}
+    {% if is_active %}<span class="pill ok" style="margin-left:6px">faol</span>{% else %}<span class="pill bad" style="margin-left:6px">ketgan</span>{% endif %}</p></div>
+  <a href="/owner/students" class="muted" style="font-size:13px">← O'quvchilar</a>
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+  {% if is_active %}
+  <form method="post" action="/owner/students/{{ student.id }}/archive" onsubmit="return confirm('O\'quvchi ketdi deb belgilansinmi? Fanlardan chiqariladi, lekin tarix saqlanadi.')" style="margin:0">
+    <button class="btn" style="background:#c98a2b">⏻ Ketdi (arxivlash)</button>
+  </form>
+  {% else %}
+  <form method="post" action="/owner/students/{{ student.id }}/activate" style="margin:0">
+    <button class="btn" style="background:var(--good)">↺ Qayta faollashtirish</button>
+  </form>
+  {% endif %}
+  <form method="post" action="/owner/students/{{ student.id }}/delete" onsubmit="return confirm('Butunlay o\'chirilsinmi? Bu amalni qaytarib bo\'lmaydi.')" style="margin:0">
+    <button class="btn" style="background:#c2563f">🗑 O'chirish</button>
+  </form>
+</div>
+
+<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+  <div class="stat"><div class="top"><span class="tag">Oylik (jami)</span><span class="ic">₸</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_fee).replace(",", " ") }}</div><div class="sub">barcha fanlar / oy</div></div>
+  <div class="stat green"><div class="top"><span class="tag">Jami to'langan</span><span class="ic">✓</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_paid).replace(",", " ") }}</div><div class="sub">umrida</div></div>
+  <div class="stat red"><div class="top"><span class="tag">Umumiy qarz</span><span class="ic">!</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_debt).replace(",", " ") }}</div><div class="sub">{{ now_label }} holatiga</div></div>
+</div>
+
+{% for r in rows %}
+<div class="card" style="margin-bottom:16px">
+  <div class="hd" style="gap:10px;flex-wrap:wrap">
+    <h2>{{ r.subject }}</h2>
+    <span class="muted" style="font-size:13px">Oylik: {% if r.fee > 0 %}{{ "{:,.0f}".format(r.fee).replace(",", " ") }} so'm{% else %}belgilanmagan{% endif %}</span>
+    {% if r.debt > 0 %}<span class="pill bad" style="margin-left:auto">Qarz: {{ "{:,.0f}".format(r.debt).replace(",", " ") }}</span>
+    {% elif r.ahead > 0 %}<span class="pill" style="background:#e7eefb;color:#2f4d8a;margin-left:auto">{{ r.ahead }} oy oldindan</span>
+    {% else %}<span class="pill ok" style="margin-left:auto">to'liq</span>{% endif %}
+  </div>
+  <div class="bd">
+    {% if r.cells %}
+    <div class="mgrid">
+      {% for c in r.cells %}
+      <div class="mcell s-{{ c.status }}{{ ' cur' if c.current }}">
+        <div class="mlabel">{{ c.label }}{% if c.current %} •{% endif %}</div>
+        <div class="mstat">
+          {% if c.status == "full" %}To'liq
+          {% elif c.status == "ahead" %}Oldindan
+          {% elif c.status == "partial" %}{{ "{:,.0f}".format(c.alloc).replace(",", " ") }}
+          {% elif c.status == "ahead_partial" %}{{ "{:,.0f}".format(c.alloc).replace(",", " ") }}
+          {% elif c.status == "unpaid" %}Qarz
+          {% else %}—{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap">
+      <form method="post" action="/owner/students/{{ student.id }}/pay" style="display:inline-flex;gap:6px">
+        <input type="hidden" name="group_id" value="{{ r.gid }}">
+        <input name="amount" type="number" placeholder="{{ (r.debt or r.fee)|int }} (qarzni yopish)" style="width:200px;padding:8px 11px">
+        {% if accounts %}
+        <select name="account_id" style="width:auto">
+          {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+        </select>
+        {% endif %}
+        <button class="btn" style="padding:8px 14px;font-size:13px">To'lov qabul qilish</button>
+      </form>
+      <form method="post" action="/owner/students/{{ student.id }}/discount" style="display:inline-flex;gap:6px;align-items:center">
+        <input type="hidden" name="group_id" value="{{ r.gid }}">
+        <span class="muted" style="font-size:12.5px">Chegirma:</span>
+        <input name="discount" type="number" value="{{ r.discount|int }}" style="width:110px;padding:8px 10px" placeholder="0">
+        <button class="btn" style="padding:8px 11px;font-size:12px;background:#6b8a85">OK</button>
+      </form>
+      <form method="post" action="/owner/students/{{ student.id }}/unenroll" style="margin-left:auto" onsubmit="return confirm('Fandan chiqarilsinmi?')">
+        <input type="hidden" name="group_id" value="{{ r.gid }}">
+        <button class="btn" style="padding:8px 11px;font-size:12.5px;background:#c2563f">Fandan chiqarish</button>
+      </form>
+    </div>
+    {% if r.discount and r.discount > 0 %}<p class="muted" style="font-size:12px;margin-top:8px">Asl narx {{ "{:,.0f}".format(r.base).replace(",", " ") }} − chegirma {{ "{:,.0f}".format(r.discount).replace(",", " ") }} = <b>{{ "{:,.0f}".format(r.fee).replace(",", " ") }} so'm</b></p>{% endif %}
+  </div>
+</div>
+{% else %}
+<div class="card"><div class="bd"><div class="empty">Hali fanga yozilmagan. Pastdan qo'shing.</div></div></div>
+{% endfor %}
+
+<style>
+  .mgrid{display:flex;flex-wrap:wrap;gap:8px}
+  .mcell{min-width:92px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;text-align:center;background:#fff}
+  .mcell .mlabel{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:3px}
+  .mcell .mstat{font-size:12.5px;font-weight:700;font-family:'Sora'}
+  .mcell.cur{box-shadow:0 0 0 2px var(--brand)}
+  .mcell.s-full{background:#e6f3eb;border-color:#bfe0cc;color:#1f7a52}
+  .mcell.s-ahead{background:#e7eefb;border-color:#cdd9f2;color:#2f4d8a}
+  .mcell.s-partial{background:#fbf1dd;border-color:#ecd9ad;color:#9a6b14}
+  .mcell.s-ahead_partial{background:#eef4f3;border-color:#d5e2de;color:#3a5560}
+  .mcell.s-unpaid{background:#fde9e4;border-color:#f3c9bd;color:#a23c28}
+  .mcell.s-none,.mcell.s-future,.mcell.s-before{color:#9aa9a5}
+</style>
+
+<div class="formcard" style="margin-top:18px">
+  <h2>O'quvchi ma'lumotlari</h2>
+  <form method="post" action="/owner/students/{{ student.id }}/profile" enctype="multipart/form-data">
+    <div style="display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap">
+      <div style="text-align:center">
+        {% if student.photo_url %}
+        <img src="{{ student.photo_url }}" alt="foto" style="width:96px;height:96px;border-radius:12px;object-fit:cover;border:1px solid var(--line)">
+        {% else %}
+        <div style="width:96px;height:96px;border-radius:12px;background:#eef2f1;display:flex;align-items:center;justify-content:center;font-size:30px;color:#9bb">☺</div>
+        {% endif %}
+        <div style="margin-top:8px"><label class="f" style="font-size:11px">Rasm yuklash</label><input type="file" name="photo" accept="image/*" style="font-size:12px;width:150px"></div>
+      </div>
+      <div style="flex:1;min-width:280px">
+        <div class="frow">
+          <div><label class="f">F.I.O.</label><input name="full_name" value="{{ student.full_name }}" required></div>
+          <div><label class="f">Ota-ona ismi</label><input name="parent_name" value="{{ student.parent_name or '' }}"></div>
+          <div><label class="f">Ota-ona telefoni</label><input name="parent_phone" value="{{ student.parent_phone or '' }}"></div>
+          <div><label class="f">Qo'shimcha telefon</label><input name="second_phone" value="{{ student.second_phone or '' }}"></div>
+          <div><label class="f">Tug'ilgan sana</label><input name="birth_date" type="date" value="{{ student.birth_date or '' }}"></div>
+          <div><label class="f">Manzil</label><input name="address" value="{{ student.address or '' }}"></div>
+        </div>
+        <div style="margin-top:10px"><label class="f">Izoh</label><input name="note" value="{{ student.note or '' }}" placeholder="masalan: aka-ukasi ham o'qiydi"></div>
+        <div style="margin-top:14px"><button class="btn" type="submit">Saqlash</button></div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<div class="formcard" style="margin-top:18px">
+  <h2>Ota-ona kabineti havolasi</h2>
+  {% if request and request.query_params.get('shared') %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Havola ota-onaga Telegram orqali yuborildi (agar bot ulangan bo'lsa).</div>{% endif %}
+  <p class="muted" style="font-size:12.5px;margin-bottom:10px">Ota-ona bu havola orqali (loginsiz) farzandi davomati, baholari va to'lovini ko'radi.</p>
+  {% if parent_link %}
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <input value="{{ parent_link }}" readonly onclick="this.select()" style="flex:1;min-width:240px">
+    <a href="{{ parent_link }}" target="_blank" class="btn" style="background:#5b6e6a">Ochish</a>
+  </div>
+  {% endif %}
+  <form method="post" action="/owner/students/{{ student.id }}/share" style="margin-top:12px">
+    <button class="btn" type="submit">📨 {% if parent_link %}Qayta yuborish{% else %}Havola yaratib yuborish{% endif %}</button>
+  </form>
+</div>
+
+<div class="formcard" style="margin-top:18px">
+  <h2>Fanga qo'shish</h2>
+  {% if others %}
+  <form method="post" action="/owner/students/{{ student.id }}/enroll">
+    <div class="frow">
+      <div style="flex:1;min-width:240px"><label class="f">Fan (guruh)</label>
+        <select name="group_id" required>
+          <option value="">— tanlang —</option>
+          {% for g in others %}<option value="{{ g.id }}">{{ g.name }}{% if g.subject %} · {{ g.subject }}{% endif %}</option>{% endfor %}
+        </select>
+      </div>
+      <div><button class="btn" type="submit">+ Qo'shish</button></div>
+    </div>
+  </form>
+  {% else %}<p class="muted" style="font-size:13.5px">Barcha fanlarga yozilgan.</p>{% endif %}
+</div>
+
+<div class="card" style="margin-top:18px">
+  <div class="hd"><h2>To'lov tarixi</h2></div>
+  <div class="bd">
+    {% if history %}
+    <table>
+      <thead><tr><th>Sana</th><th>Fan</th><th>Summa</th></tr></thead>
+      <tbody>
+        {% for h in history %}
+        <tr><td class="muted">{{ (h.paid_at or "")[:10] }}</td><td class="muted">{{ h.subject }}</td>
+          <td><b>{{ "{:,.0f}".format(h.amount|float).replace(",", " ") }} so'm</b></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali to'lov yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

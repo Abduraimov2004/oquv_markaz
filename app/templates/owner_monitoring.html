@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}O'qituvchi nazorati{% endblock %}
+{% block heading %}O'qituvchi nazorati{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>O'qituvchilar davomat yoki bahoni keyin o'zgartirsa — bu yerda ko'rinadi: kim, qachon, nimani, qanaqadan qanaqaga o'zgartirdi.</p></div></div>
+
+{% if not table_ok %}<div class="err">⚠ Bu bo'lim uchun <b>schema_v9.sql</b> hali ishlatilmagan. Supabase → SQL Editor'da uni RUN qiling, keyin qaytadan urinib ko'ring.</div>{% endif %}
+
+<div class="card">
+  <div class="hd"><h2>O'zgartirishlar ({{ edits|length }})</h2></div>
+  <div class="bd">
+    {% if edits %}
+    <table>
+      <thead><tr><th>Vaqt</th><th>O'qituvchi</th><th>Tur</th><th>O'quvchi</th><th>Guruh</th><th>Sana</th><th>O'zgarish</th></tr></thead>
+      <tbody>
+        {% for e in edits %}
+        <tr>
+          <td class="muted" style="white-space:nowrap">{{ (e.created_at or "")[:16].replace("T", " ") }}</td>
+          <td><b>{{ e.teacher }}</b></td>
+          <td><span class="pill {{ 'ok' if e.kind=='attendance' else 'warn' }}">{{ e.kind_label }}</span></td>
+          <td>{{ e.student }}</td>
+          <td class="muted">{{ e.group }}</td>
+          <td class="muted">{{ e.date or "—" }}</td>
+          <td><span style="color:var(--muted);text-decoration:line-through">{{ e.old_disp or "—" }}</span> → <b style="color:var(--accent)">{{ e.new_disp or "—" }}</b></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali o'zgartirish yo'q — hammasi birinchi kiritilganidek.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

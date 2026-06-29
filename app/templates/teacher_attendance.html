@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Davomat{% endblock %}
+{% block heading %}Davomat{% endblock %}
+{% block content %}
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Davomat saqlandi va o'zgargan o'quvchilar ota-onasiga xabar yuborildi.</div>{% endif %}
+
+<div class="card">
+  <div class="hd" style="gap:12px;flex-wrap:wrap">
+    <form method="get" action="/teacher/attendance" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <select name="group" onchange="this.form.submit()" style="width:auto;min-width:170px">
+        {% for g in groups %}<option value="{{ g.id }}" {{ 'selected' if sel==g.id }}>{{ g.name }}</option>{% endfor %}
+      </select>
+      <input type="date" name="date" value="{{ date }}" onchange="this.form.submit()" style="width:auto">
+    </form>
+  </div>
+  <div class="bd">
+    {% if students %}
+    {% if locked %}
+    <div style="display:flex;align-items:center;gap:12px;padding:0 0 12px">
+      <span class="pill ok">Saqlangan ✓</span>
+      <span class="muted" style="font-size:13px">Bu kun uchun davomat olingan.</span>
+      <a href="/teacher/attendance?group={{ sel }}&date={{ date }}&edit=1" class="btn" style="margin-left:auto;padding:7px 14px;font-size:13px">✎ Tahrirlash</a>
+    </div>
+    {% endif %}
+    <form method="post" action="/teacher/attendance">
+      <input type="hidden" name="group_id" value="{{ sel }}">
+      <input type="hidden" name="date" value="{{ date }}">
+      <table>
+        <thead><tr><th>O'quvchi</th><th style="text-align:right">Holat</th></tr></thead>
+        <tbody>
+          {% for s in students %}
+          <tr>
+            <td><b>{{ s.full_name }}</b></td>
+            <td style="text-align:right">
+              <label style="margin-right:16px;cursor:pointer"><input type="radio" name="status_{{ s.id }}" value="present" {{ 'checked' if s.status=='present' }} {{ 'disabled' if locked }}> Keldi</label>
+              <label style="cursor:pointer"><input type="radio" name="status_{{ s.id }}" value="absent" {{ 'checked' if s.status=='absent' }} {{ 'disabled' if locked }}> Kelmadi</label>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if not locked %}<div style="padding:14px"><button class="btn" type="submit">Saqlash va ota-onalarga yuborish</button></div>{% endif %}
+    </form>
+    {% else %}<div class="empty">Guruh tanlanmagan yoki bu guruhda o'quvchi yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

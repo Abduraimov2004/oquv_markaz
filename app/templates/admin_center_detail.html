@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}{{ center.name }}{% endblock %}
+{% block heading %}Markaz: {{ center.name }}{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p>Egasi: {{ center.owner_name or "—" }}{% if center.phone %} · {{ center.phone }}{% endif %}
+    {% if center.status=="active" %}<span class="pill ok" style="margin-left:6px">faol</span>{% else %}<span class="pill bad" style="margin-left:6px">to'xtatilgan</span>{% endif %}</p></div>
+  <a href="/admin/centers" class="muted" style="font-size:13px">← Markazlar</a>
+</div>
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+{% if err %}<div class="err">Saqlashda xato. Qaytadan urinib ko'ring.</div>{% endif %}
+
+<div class="stats" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat {{ 'red' if center.sub_state=='expired' else ('amber' if center.sub_state=='soon' else '') }}">
+    <div class="top"><span class="tag">Obuna tugaydi</span><span class="ic">₸</span></div>
+    <div class="num" style="font-size:18px">{{ center.subscription_until or "—" }}</div>
+    <div class="sub">{% if center.days_left is not none %}{% if center.days_left < 0 %}{{ -center.days_left }} kun oldin tugagan{% else %}{{ center.days_left }} kun qoldi{% endif %}{% else %}belgilanmagan{% endif %}</div>
+  </div>
+  <div class="stat"><div class="top"><span class="tag">O'quvchilar</span><span class="ic">☺</span></div><div class="num">{{ counts.students }}</div><div class="sub">{{ counts.groups }} guruh</div></div>
+  <div class="stat"><div class="top"><span class="tag">O'qituvchilar</span><span class="ic">✓</span></div><div class="num">{{ counts.teachers }}</div><div class="sub">jami</div></div>
+  <div class="stat green"><div class="top"><span class="tag">Jami to'lagan</span><span class="ic">★</span></div><div class="num" style="font-size:18px">{{ "{:,.0f}".format(total_paid).replace(",", " ") }}</div><div class="sub">obuna · so'm</div></div>
+</div>
+
+<div class="grid2">
+  <div class="formcard" style="margin:0">
+    <h2>Obuna to'lovini qabul qilish</h2>
+    <form method="post" action="/admin/centers/{{ center.id }}/pay">
+      <div class="frow">
+        <div><label class="f">Necha oy</label>
+          <select name="months">
+            {% for n in [1,2,3,6,12] %}<option value="{{ n }}">{{ n }} oy</option>{% endfor %}
+          </select>
+        </div>
+        <div><label class="f">Summa (so'm)</label><input name="amount" type="number" placeholder="{{ (center.monthly_fee or 0)|int }} / oy"></div>
+        <div style="flex:2;min-width:150px"><label class="f">Izoh</label><input name="note" placeholder="masalan: naqd"></div>
+        <div><button class="btn" type="submit">Qabul + uzaytirish</button></div>
+      </div>
+    </form>
+    <p class="muted" style="font-size:12px;margin-top:10px">Obuna joriy tugash sanasidan (yoki bugundan) {{ '' }}tanlangan oy qo'shiladi. Summa bo'sh bo'lsa — oylik narx × oy soni olinadi.</p>
+  </div>
+
+  <div class="formcard" style="margin:0">
+    <h2>Holat va parol</h2>
+    <form method="post" action="/admin/centers/{{ center.id }}/toggle" style="margin-bottom:12px">
+      {% if center.status=="active" %}
+      <button class="btn" style="background:#c98a2b" onclick="return confirm('Markaz to\'xtatilsinmi? Egasi panelga kira olmaydi.')">⏸ To'xtatish (suspend)</button>
+      {% else %}
+      <button class="btn" style="background:var(--good)">▶ Faollashtirish</button>
+      {% endif %}
+    </form>
+    <form method="post" action="/admin/centers/{{ center.id }}/password" style="display:flex;gap:8px;align-items:end">
+      <div style="flex:1"><label class="f">Egasiga yangi parol</label><input name="password" type="text" placeholder="yangi parol" required></div>
+      <button class="btn" type="submit">O'rnatish</button>
+    </form>
+  </div>
+</div>
+
+<div class="formcard" style="margin-top:18px">
+  <h2>Markazni tahrirlash</h2>
+  <form method="post" action="/admin/centers/{{ center.id }}/edit">
+    <div class="frow">
+      <div><label class="f">Markaz nomi</label><input name="name" value="{{ center.name }}" required></div>
+      <div><label class="f">Egasi (direktor)</label><input name="owner_name" value="{{ center.owner_name or '' }}"></div>
+      <div><label class="f">Egasi telefoni (login)</label><input name="owner_phone" value="{{ center.phone or '' }}"></div>
+      <div><label class="f">Obuna narxi (oyiga)</label><input name="monthly_fee" type="number" value="{{ (center.monthly_fee or 0)|int }}"></div>
+      <div><button class="btn" type="submit">Saqlash</button></div>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:18px">
+  <div class="hd"><h2>Obuna to'lov tarixi</h2></div>
+  <div class="bd">
+    {% if history %}
+    <table>
+      <thead><tr><th>Sana</th><th>Summa</th><th>Oy</th><th>Yangi tugash</th><th>Izoh</th></tr></thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td class="muted">{{ (h.paid_at or "")[:10] }}</td>
+          <td><b>{{ "{:,.0f}".format(h.amount|float).replace(",", " ") }} so'm</b></td>
+          <td>{{ h.months }} oy</td>
+          <td class="muted">{{ h.until or "—" }}</td>
+          <td class="muted">{{ h.note or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali obuna to'lovi yo'q.</div>{% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:18px;border:1px solid #f1c9bd">
+  <div class="bd" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div><b style="font-family:'Sora'">Markazni o'chirish</b><div class="muted" style="font-size:12.5px">Markaz va uning barcha ma'lumotlari (o'quvchi, to'lov, jadval...) butunlay o'chadi. Qaytarib bo'lmaydi.</div></div>
+    <form method="post" action="/admin/centers/{{ center.id }}/delete" style="margin:0 0 0 auto" onsubmit="return confirm('DIQQAT! Bu markaz va BARCHA ma\'lumotlari butunlay o\'chiriladi. Davom etilsinmi?')">
+      <button class="btn" style="background:#c2563f">🗑 Butunlay o'chirish</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

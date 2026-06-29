@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Navbat{% endblock %}
+{% block heading %}Navbat (barcha guruhlar){% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>To'lgan guruhlarga kutayotganlar. Joy chiqsa "→ O'quvchi qilish" bilan guruhga o'tkazasiz. Bu ro'yxat lidlardan alohida.</p></div></div>
+
+<div class="card">
+  <div class="hd"><h2>Navbatdagilar ({{ items|length }})</h2></div>
+  <div class="bd">
+    {% if items %}
+    <table>
+      <thead><tr><th>F.I.O.</th><th>Guruh</th><th>Telefon</th><th>Holat</th><th></th></tr></thead>
+      <tbody>
+        {% for w in items %}
+        <tr>
+          <td><b>{{ w.full_name }}</b>{% if w.note %}<br><span class="muted" style="font-size:12px">{{ w.note }}</span>{% endif %}</td>
+          <td><a href="/owner/groups/{{ w.gid }}" style="color:var(--brand);font-weight:600">{{ w.group_name }}</a>
+            {% if w.group_full %}<span class="pill bad" style="margin-left:4px">To'lgan</span>{% elif w.free is not none %}<span class="pill ok" style="margin-left:4px">{{ w.free }} joy</span>{% endif %}
+          </td>
+          <td class="muted">{{ w.phone or "—" }}</td>
+          <td>{% if w.is_existing %}<span class="pill ok">Bazada bor</span>{% else %}<span class="pill warn">Yangi</span>{% endif %}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <form method="post" action="/owner/groups/{{ w.gid }}/waitlist/{{ w.id }}/enroll" style="display:inline" onsubmit="return confirm('Guruhga qo\'shilsinmi?')">
+              <button class="btn" style="padding:6px 10px;font-size:12px">→ O'quvchi qilish</button>
+            </form>
+            <form method="post" action="/owner/groups/{{ w.gid }}/waitlist/{{ w.id }}/remove" style="display:inline" onsubmit="return confirm('Navbatdan o\'chirilsinmi?')">
+              <button class="btn" style="padding:6px 10px;font-size:12px;background:#c2563f">✕</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Navbat bo'sh. To'lgan guruh sahifasida nomzod qo'shishingiz mumkin.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

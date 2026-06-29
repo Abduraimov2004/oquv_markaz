@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Ommaviy xabar{% endblock %}
+{% block heading %}Ommaviy xabar{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Botga ulangan barcha ota-onalarga bitta xabar yuboring (e'lon, bayram, dars o'zgarishi).</p></div></div>
+
+{% if sent is not none %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ {{ sent }} ta ota-onaga yuborildi.</div>{% endif %}
+
+<div class="formcard">
+  <h2>Yangi e'lon</h2>
+  <p class="muted" style="font-size:13px;margin-bottom:12px">Botga ulangan ota-onalar: <b>{{ parent_count }}</b></p>
+  <form method="post" action="/owner/announce">
+    <label class="f">Kimga yuborilsin?</label>
+    <select name="target" id="annTarget" onchange="document.getElementById('annGroup').style.display = this.value=='group' ? 'block' : 'none'" style="margin-bottom:12px">
+      <option value="all">Barcha ota-onalar</option>
+      <option value="teachers">O'qituvchilar</option>
+      <option value="group">Bitta guruh ota-onalari</option>
+    </select>
+    <div id="annGroup" style="display:none;margin-bottom:12px">
+      <label class="f">Guruh</label>
+      <select name="group_id">
+        {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <label class="f">Xabar matni</label>
+    <textarea name="message" rows="4" placeholder="Masalan: Hurmatli ota-onalar, ertaga dars bo'lmaydi." required></textarea>
+    <div style="margin-top:14px"><button class="btn" type="submit" onclick="return confirm('Yuborilsinmi?')">Yuborish</button></div>
+  </form>
+  <p class="muted" style="font-size:12px;margin-top:10px">Faqat botni ishga tushirgan (ulangan) ota-onalar/o'qituvchilar oladi.</p>
+</div>
+
+{% endblock %}

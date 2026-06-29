@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}O'qituvchilar maoshi{% endblock %}
+{% block heading %}O'qituvchilar maoshi{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p>{{ month }} oyi · yig'ilgan puldan foiz = o'qituvchi ulushi. Berilgan oylik ayirilib, qoldiq ko'rinadi.</p></div>
+</div>
+
+<div class="stats" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat"><div class="top"><span class="tag">Yig'ildi</span><span class="ic">₸</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_collected).replace(",", " ") }}</div><div class="sub">so'm</div></div>
+  <div class="stat amber"><div class="top"><span class="tag">Ulush (jami)</span><span class="ic">％</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_earn).replace(",", " ") }}</div><div class="sub">hisoblangan</div></div>
+  <div class="stat green"><div class="top"><span class="tag">Berildi</span><span class="ic">✓</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_paid).replace(",", " ") }}</div><div class="sub">to'langan oylik</div></div>
+  <div class="stat red"><div class="top"><span class="tag">Qoldi</span><span class="ic">!</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_remaining).replace(",", " ") }}</div><div class="sub">berilishi kerak</div></div>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>Hisob-kitob</h2></div>
+  <div class="bd">
+    {% if rows %}
+    <table>
+      <thead><tr><th>O'qituvchi</th><th>Yig'ilgan</th><th>Foiz</th><th>Ulushi</th><th>Berildi</th><th>Qoldi</th><th></th></tr></thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td><b>{{ r.name }}</b></td>
+          <td>{{ "{:,.0f}".format(r.collected).replace(",", " ") }}</td>
+          <td>{{ r.pct }}%</td>
+          <td>{{ "{:,.0f}".format(r.earn).replace(",", " ") }}</td>
+          <td>{{ "{:,.0f}".format(r.paid).replace(",", " ") }}</td>
+          <td>{% if r.remaining > 0 %}<b style="color:var(--danger)">{{ "{:,.0f}".format(r.remaining).replace(",", " ") }}</b>{% else %}<span class="pill ok">to'liq</span>{% endif %}</td>
+          <td style="text-align:right"><a href="/owner/teachers/{{ r.id }}" class="btn" style="padding:6px 12px;font-size:12.5px">Oylik berish →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">O'qituvchi yo'q yoki hali to'lov yig'ilmagan.</div>{% endif %}
+  </div>
+</div>
+
+{% if unattributed and unattributed > 0 %}
+<div class="err" style="background:#fbf1dd;color:#9a6b14;margin-top:14px">
+  ⓘ {{ "{:,.0f}".format(unattributed).replace(",", " ") }} so'm to'lov fanga bog'lanmagan (eski yoki bir nechta fanli o'quvchi) — shuning uchun o'qituvchiga taqsimlanmagan. Yangi to'lovlar avtomatik bog'lanadi.
+</div>
+{% endif %}
+
+{% endblock %}

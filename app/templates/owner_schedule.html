@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Dars jadvali{% endblock %}
+{% block heading %}Dars jadvali{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Haftalik jadval — qaysi guruh, qaysi xona, qaysi vaqt. Xona yoki o'qituvchi ikki joyda bo'lib qolsa, tizim ogohlantiradi.</p></div></div>
+
+{% if request and request.query_params.get('gen') %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Namuna jadval yaratildi ({{ request.query_params.get('gen') }} ta dars). Kerak bo'lsa tahrirlang.</div>{% endif %}
+{% if err == "nogroups" %}<div class="err">Avval guruh qo'shing — jadval guruhlarga asoslanadi.</div>{% endif %}
+
+<div class="card" style="margin-bottom:16px">
+  <div class="bd" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <div><b style="font-family:'Sora'">Jadvalni avtomatik yaratish</b><div class="muted" style="font-size:12.5px">Har kuni 3 dars (Dushanba–Shanba). Toq kunlar (Du/Cho/Ju) bir xil vaqtda. Xonalar ham qo'shiladi. Mavjud jadval o'rniga yangisi yoziladi.</div></div>
+    <form method="post" action="/owner/schedule/generate" style="margin:0 0 0 auto" onsubmit="return confirm('Namuna jadval yaratilsinmi? Hozirgi jadval o\'rniga yoziladi.')">
+      <button class="btn" type="submit">⚡ Avtomatik yaratish</button>
+    </form>
+  </div>
+</div>
+
+{% if room_status %}
+<div class="card" style="margin-bottom:16px">
+  <div class="hd"><h2>Xonalar bandligi · hozir ({{ now_label }})</h2><span class="muted" style="font-size:12.5px">{{ free_cnt }} ta bo'sh</span></div>
+  <div class="bd">
+    <div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(180px,1fr));margin:0">
+      {% for r in room_status %}
+      <div class="stat" style="border-left:4px solid {{ '#d9534f' if r.busy else 'var(--good)' }}">
+        <div style="font-family:'Sora';font-weight:700;font-size:15px">{{ r.name }}</div>
+        {% if r.busy %}
+        <div style="margin-top:4px"><span class="pill bad">Band</span></div>
+        <div class="muted" style="font-size:12.5px;margin-top:6px">{{ r.info.group }}{% if r.info.teacher %} · {{ r.info.teacher }}{% endif %}<br>{{ r.info.time }}</div>
+        {% else %}
+        <div style="margin-top:4px"><span class="pill ok">Bo'sh</span></div>
+        <div class="muted" style="font-size:12.5px;margin-top:6px">Hozir dars yo'q</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if err == "time" %}<div class="err">Vaqt noto'g'ri — tugash vaqti boshlanishdan keyin bo'lsin.</div>
+{% elif err == "noday" %}<div class="err">Kamida bitta kun belgilang.</div>{% endif %}
+{% if request and request.query_params.get('added') %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ {{ request.query_params.get('added') }} ta kun jadvalga qo'shildi.</div>{% endif %}
+{% if request and request.query_params.get('roomconf') %}<div class="err">⚠ Quyidagi kunlarда xona o'sha vaqtda band edi — qo'shilmadi: <b>{{ request.query_params.get('roomconf').replace('.', ', ') }}</b>. Boshqa xona yoki vaqt tanlang.</div>{% endif %}
+{% if request and request.query_params.get('teachconf') %}<div class="err">⚠ Quyidagi kunlarда o'qituvchi boshqa guruhda band edi — qo'shilmadi: <b>{{ request.query_params.get('teachconf').replace('.', ', ') }}</b>.</div>{% endif %}
+
+<div class="grid2" style="margin-bottom:18px">
+  <div class="formcard" style="margin:0">
+    <h2>Darsni jadvalga qo'shish</h2>
+    <form method="post" action="/owner/schedule/add">
+      <div class="frow">
+        <div style="min-width:150px"><label class="f">Guruh</label>
+          <select name="group_id" required>
+            <option value="">— tanlang —</option>
+            {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div><label class="f">Xona</label>
+          <select name="room_id">
+            <option value="">— xonasiz —</option>
+            {% for r in rooms %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div><label class="f">Boshlanish</label><input name="start_time" type="time" value="16:00" required></div>
+        <div><label class="f">Tugash</label><input name="end_time" type="time" value="17:30" required></div>
+      </div>
+      <div style="margin-top:10px">
+        <label class="f">Kunlar (bir nechtasini belgilang)</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+          {% for wd, lab in weekdays %}
+          <label style="display:flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:9px;cursor:pointer">
+            <input type="checkbox" name="weekdays" value="{{ wd }}" style="width:16px;height:16px"> {{ lab }}
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div style="margin-top:12px"><button class="btn" type="submit">+ Qo'shish</button></div>
+    </form>
+  </div>
+
+  <div class="formcard" style="margin:0">
+    <h2>Xonalar</h2>
+    <form method="post" action="/owner/rooms/add" style="display:flex;gap:8px;align-items:end;margin-bottom:12px">
+      <div style="flex:1"><label class="f">Xona nomi</label><input name="name" placeholder="1-xona" required></div>
+      <div style="width:110px"><label class="f">Sig'imi</label><input name="capacity" type="number" placeholder="12"></div>
+      <button class="btn" type="submit">+</button>
+    </form>
+    {% if rooms %}
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      {% for r in rooms %}
+      <span class="roomchip">{{ r.name }}{% if r.capacity %} · {{ r.capacity }}{% endif %}
+        <form method="post" action="/owner/rooms/{{ r.id }}/delete" style="display:inline;margin:0" onsubmit="return confirm('Xona o\'chirilsinmi?')">
+          <button class="xbtn2">×</button></form>
+      </span>
+      {% endfor %}
+    </div>
+    {% else %}<p class="muted" style="font-size:13px">Hali xona qo'shilmagan.</p>{% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>Haftalik jadval</h2>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+      <span class="muted" style="font-size:12.5px">{% if today_only %}Bugun: <b>{{ today_label }}</b>{% else %}Butun hafta{% endif %}</span>
+      {% if today_only %}
+      <a href="/owner/schedule" class="btn" style="padding:6px 12px;font-size:12px;background:#5b6e6a">Hammasini ko'rsatish</a>
+      {% else %}
+      <a href="/owner/schedule?view=today" class="btn" style="padding:6px 12px;font-size:12px">Faqat bugun</a>
+      {% endif %}
+    </div>
+  </div>
+  <div style="padding:14px;overflow-x:auto">
+    <div class="cal" style="min-width:{{ 200 if today_only else 760 }}px">
+      <div class="calhead" style="grid-template-columns:54px repeat({{ days|length or 1 }},1fr)">
+        <div class="gut"></div>
+        {% for d in days %}<div class="dh"><b>{{ d.short }}</b></div>{% endfor %}
+      </div>
+      <div class="calbody" style="grid-template-columns:54px repeat({{ days|length or 1 }},1fr)">
+        <div class="gut">
+          {% for h in hours %}<span class="hl" style="top:{{ h.top }}%">{{ h.label }}</span>{% endfor %}
+        </div>
+        {% for d in days %}
+        <div class="daycol">
+          {% for b in d.blocks %}
+          <div class="slot" style="top:{{ b.top }}%;height:{{ b.height }}%;background:{{ b.bg }};color:{{ b.fg }}">
+            <div class="s-name">{{ b.name }}</div>
+            <div class="s-meta">{{ b.time }}{% if b.room %} · {{ b.room }}{% endif %}</div>
+            {% if b.teacher %}<div class="s-meta">{{ b.teacher }}</div>{% endif %}
+            <form method="post" action="/owner/schedule/{{ b.id }}/delete" style="margin:0" onsubmit="return confirm('O\'chirilsinmi?')">
+              <button class="s-x">×</button>
+            </form>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% if not has_slots %}<p class="muted" style="font-size:13px;text-align:center;margin-top:12px">Jadval bo'sh — yuqoridan dars qo'shing.</p>{% endif %}
+  </div>
+</div>
+
+<style>
+  .roomchip{display:inline-flex;align-items:center;gap:6px;background:#eef4f3;border:1px solid var(--line);
+    border-radius:20px;padding:5px 12px;font-size:13px;font-weight:600;color:var(--brand-2)}
+  .xbtn2{background:none;border:none;color:#9bb0aa;font-size:15px;cursor:pointer;line-height:1;padding:0}
+  .xbtn2:hover{color:var(--danger)}
+  .cal .calhead{display:grid;grid-template-columns:54px repeat(7,1fr)}
+  .cal .calhead .dh{text-align:center;padding:8px 0;font-family:'Sora';font-size:12.5px;color:var(--ink);
+    border-left:1px solid #eef2f1}
+  .cal .calhead .gut{}
+  .cal .calbody{display:grid;grid-template-columns:54px repeat(7,1fr);height:760px;
+    border-top:1px solid var(--line);position:relative}
+  .cal .calbody .gut{position:relative}
+  .cal .calbody .gut .hl{position:absolute;right:6px;transform:translateY(-50%);font-size:10.5px;color:#9aa9a5}
+  .cal .daycol{position:relative;border-left:1px solid #eef2f1;
+    background:repeating-linear-gradient(to bottom,#f1f5f4 0 1px,transparent 1px 54.2857px)}
+  .slot{position:absolute;left:3px;right:3px;border-radius:8px;padding:5px 7px;overflow:hidden;
+    box-shadow:0 1px 2px rgba(16,40,35,.08);font-size:11px;border:1px solid rgba(0,0,0,.05)}
+  .slot .s-name{font-family:'Sora';font-weight:600;font-size:11.5px;line-height:1.1;margin-bottom:2px}
+  .slot .s-meta{font-size:10px;opacity:.85;line-height:1.25}
+  .slot .s-x{position:absolute;top:2px;right:3px;background:rgba(255,255,255,.4);border:none;border-radius:4px;
+    cursor:pointer;font-size:12px;line-height:1;color:inherit;opacity:0;transition:.15s;width:16px;height:16px}
+  .slot:hover .s-x{opacity:1}
+</style>
+
+{% endblock %}

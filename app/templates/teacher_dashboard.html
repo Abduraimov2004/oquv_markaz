@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}O'qituvchi — Bosh sahifa{% endblock %}
+{% block heading %}Bosh sahifa{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Bugun: {{ today }}. Guruhni tanlab davomat, baho yoki kunlik xulosa kiriting.</p></div></div>
+
+{% if salary %}
+<div class="card" style="margin-bottom:18px;border-left:3px solid var(--accent)">
+  <div class="hd"><h2>Mening maoshim (shu oy)</h2><span class="muted" style="font-size:12.5px">foiz: {{ salary.pct }}%</span></div>
+  <div class="bd" style="display:flex;gap:26px;flex-wrap:wrap;padding:18px">
+    <div><div class="muted" style="font-size:12px">Guruhlarimdan yig'ildi</div><div style="font-family:'Sora';font-size:20px;font-weight:600">{{ "{:,.0f}".format(salary.collected).replace(",", " ") }} so'm</div></div>
+    <div><div class="muted" style="font-size:12px">Mening ulushim</div><div style="font-family:'Sora';font-size:20px;font-weight:600;color:var(--brand-2)">{{ "{:,.0f}".format(salary.earned).replace(",", " ") }} so'm</div></div>
+    <div><div class="muted" style="font-size:12px">Berildi</div><div style="font-family:'Sora';font-size:20px;font-weight:600;color:var(--good)">{{ "{:,.0f}".format(salary.paid).replace(",", " ") }} so'm</div></div>
+    <div><div class="muted" style="font-size:12px">Qoldi</div><div style="font-family:'Sora';font-size:20px;font-weight:600;color:{{ 'var(--danger)' if salary.remaining > 0 else 'var(--muted)' }}">{{ "{:,.0f}".format(salary.remaining).replace(",", " ") }} so'm</div></div>
+  </div>
+</div>
+{% endif %}
+
+{% if groups %}
+<div class="stats" style="grid-template-columns:repeat(auto-fill,minmax(250px,1fr))">
+  {% for g in groups %}
+  <div class="stat">
+    <div class="top"><span class="tag">{{ g.subject or "Guruh" }}</span><span class="ic">◫</span></div>
+    <div class="num" style="font-size:18px">{{ g.name }}</div>
+    <div class="sub">{{ g.count }} o'quvchi · {{ g.schedule_days or '' }} {{ g.schedule_time or '' }}</div>
+    <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+      <a class="btn" style="padding:6px 10px;font-size:12px" href="/teacher/attendance?group={{ g.id }}">Davomat</a>
+      <a class="btn" style="padding:6px 10px;font-size:12px" href="/teacher/grades?group={{ g.id }}">Baho</a>
+      <a class="btn" style="padding:6px 10px;font-size:12px" href="/teacher/lesson?group={{ g.id }}">Dars</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="card"><div class="empty">Sizga biriktirilgan guruh yo'q. Markaz administratoriga murojaat qiling.</div></div>
+{% endif %}
+
+{% endblock %}

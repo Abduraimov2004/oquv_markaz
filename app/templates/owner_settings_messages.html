@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Xabar shablonlari{% endblock %}
+{% block heading %}Xabar shablonlari{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Ota-onalarga yuboriladigan standart eslatma matni.</p></div><a href="/owner/settings" class="muted" style="font-size:13px">← Sozlamalar</a></div>
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+
+<div class="formcard">
+  <form method="post" action="/owner/settings/messages">
+    <label class="f">Xabar shabloni</label>
+    <textarea name="note_template" placeholder="Hurmatli ota-ona, ...">{{ settings.note_template or '' }}</textarea>
+    <div style="margin-top:14px"><button class="btn" type="submit">Saqlash</button></div>
+  </form>
+</div>
+
+{% endblock %}

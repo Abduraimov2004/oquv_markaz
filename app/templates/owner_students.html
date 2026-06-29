@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}O'quvchilar{% endblock %}
+{% block heading %}O'quvchilar{% endblock %}
+{% block content %}
+
+{% if request and request.query_params.get('dup') %}<div class="err">⚠ Bu ism va telefon bilan o'quvchi allaqachon bor — takror qo'shilmadi.</div>{% endif %}
+
+<div class="formcard">
+  <h2>Yangi o'quvchi</h2>
+  <form method="post" action="/owner/students/add">
+    <div class="frow">
+      <div><label class="f">F.I.O.</label><input name="full_name" placeholder="Aliyev Ali" required></div>
+      <div><label class="f">Ota-ona telefoni</label><input name="parent_phone" placeholder="+998 90 ..."></div>
+      <div><label class="f">Boshlang'ich fan (ixtiyoriy)</label>
+        <select name="group_id">
+          <option value="">— keyin guruhdan qo'shasiz —</option>
+          {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div><button class="btn" type="submit">+ Qo'shish</button></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin-top:10px">
+      Bitta o'quvchi bir nechta fanga yozilishi mumkin. Qo'shimcha fanlarni
+      <b>Guruhlar → guruhni ochib → O'quvchi qo'shish</b> orqali biriktirasiz.
+    </p>
+  </form>
+</div>
+
+<div class="card">
+  <div class="hd" style="gap:10px;flex-wrap:wrap">
+    <h2>Ro'yxat ({{ students|length }})</h2>
+    <form method="get" action="/owner/students" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap">
+      <input name="q" value="{{ q }}" placeholder="🔍 Ism / telefon" style="width:200px">
+      <select name="group" onchange="this.form.submit()" style="width:auto;min-width:150px">
+        <option value="">Barcha fanlar</option>
+        {% for g in groups %}<option value="{{ g.id }}" {{ 'selected' if sel_group==g.id }}>{{ g.name }}</option>{% endfor %}
+      </select>
+      <select name="status" onchange="this.form.submit()" style="width:auto;min-width:130px">
+        <option value="active" {{ 'selected' if sel_status=='active' }}>Faol</option>
+        <option value="inactive" {{ 'selected' if sel_status=='inactive' }}>Ketgan</option>
+        <option value="all" {{ 'selected' if sel_status=='all' }}>Hammasi</option>
+      </select>
+      <button class="btn" type="submit">Qidirish</button>
+    </form>
+  </div>
+  <div class="bd">
+    {% if students %}
+    <table>
+      <thead><tr><th>F.I.O.</th><th>Fanlari</th><th>Ota-ona telefoni</th><th>Holat</th><th></th></tr></thead>
+      <tbody>
+        {% for s in students %}
+        <tr{% if not s.active %} style="opacity:.55"{% endif %}>
+          <td><b>{{ s.full_name }}</b></td>
+          <td>
+            {% if s.subjects %}
+              {% for sub in s.subjects %}<span class="pill ok" style="margin:1px 2px">{{ sub }}</span>{% endfor %}
+            {% else %}<span class="muted">—</span>{% endif %}
+          </td>
+          <td class="muted">{{ s.parent_phone or "—" }}</td>
+          <td>{% if s.active %}<span class="pill ok">faol</span>{% else %}<span class="pill bad">ketgan</span>{% endif %}</td>
+          <td style="text-align:right"><a href="/owner/students/{{ s.id }}" class="btn" style="padding:6px 12px;font-size:12.5px">Ochish →</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">O'quvchi topilmadi.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

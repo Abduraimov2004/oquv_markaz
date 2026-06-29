@@ -1,0 +1,7 @@
+[Unit]
+Description=Oquv Markaz - kunlik eslatmalar (to'lov + tug'ilgan kun)
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/oquv_markaz
+ExecStart=/root/oquv_markaz/.venv/bin/python -m app.reminders

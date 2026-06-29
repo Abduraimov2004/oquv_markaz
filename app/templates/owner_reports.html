@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}Hisobotlar{% endblock %}
+{% block heading %}Hisobotlar{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Sana oralig'ini tanlang. Har jadvalni Excel (CSV) ko'rinishida yuklab olishingiz mumkin.</p></div></div>
+
+<div class="formcard" style="margin-bottom:18px">
+  <form method="get" action="/owner/reports" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+    <div><label class="f">Boshlanish</label><input type="date" name="start" value="{{ start }}"></div>
+    <div><label class="f">Tugash</label><input type="date" name="end" value="{{ end }}"></div>
+    <button class="btn" type="submit">Ko'rsatish</button>
+  </form>
+</div>
+
+<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+  <div class="stat green"><div class="top"><span class="tag">Kirim</span><span class="ic">↓</span></div><div class="num" style="font-size:20px">{{ "{:,.0f}".format(income).replace(",", " ") }}</div><div class="sub">so'm · {{ start }} — {{ end }}</div></div>
+  <div class="stat red"><div class="top"><span class="tag">Chiqim</span><span class="ic">↑</span></div><div class="num" style="font-size:20px">{{ "{:,.0f}".format(exp + payouts).replace(",", " ") }}</div><div class="sub">xarajat + oylik</div></div>
+  <div class="stat"><div class="top"><span class="tag">Sof foyda</span><span class="ic">★</span></div><div class="num" style="font-size:20px;color:{{ 'var(--danger)' if profit < 0 else 'var(--good)' }}">{{ "{:,.0f}".format(profit).replace(",", " ") }}</div><div class="sub">so'm</div></div>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <div class="hd"><h2>Qarzdorlar ({{ debtors|length }})</h2>
+    <a href="/owner/reports/export/debtors" class="btn" style="margin-left:auto;padding:7px 14px;font-size:12.5px">⬇ Excel (CSV)</a>
+  </div>
+  <div class="bd">
+    {% if debtors %}
+    <p class="muted" style="margin:0 0 10px">Jami qarz: <b style="color:var(--danger)">{{ "{:,.0f}".format(total_debt).replace(",", " ") }}</b> so'm</p>
+    <table>
+      <thead><tr><th>O'quvchi</th><th>Telefon</th><th>Qarz</th></tr></thead>
+      <tbody>
+        {% for d in debtors %}
+        <tr><td><b>{{ d.name }}</b></td><td class="muted">{{ d.phone }}</td><td><b style="color:var(--danger)">{{ "{:,.0f}".format(d.debt).replace(",", " ") }}</b></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Qarzdor yo'q ✓</div>{% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <div class="hd"><h2>Davomat · {{ start }} — {{ end }}</h2>
+    <a href="/owner/reports/export/attendance?start={{ start }}&end={{ end }}" class="btn" style="margin-left:auto;padding:7px 14px;font-size:12.5px">⬇ Excel (CSV)</a>
+  </div>
+  <div class="bd">
+    {% if att_rows %}
+    <table>
+      <thead><tr><th>O'quvchi</th><th>Kelgan / Jami</th><th>Davomat %</th></tr></thead>
+      <tbody>
+        {% for a in att_rows %}
+        <tr><td><b>{{ a.name }}</b></td><td class="muted">{{ a.present }} / {{ a.total }}</td>
+          <td><span class="pill {{ 'ok' if a.rate>=80 else 'warn' if a.rate>=50 else 'bad' }}">{{ a.rate }}%</span></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Bu oraliqда davomat yozuvi yo'q.</div>{% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:18px">
+  <div class="hd"><h2>Guruhlar bo'yicha</h2>
+    <a href="/owner/reports/export/payments?start={{ start }}&end={{ end }}" class="btn" style="margin-left:auto;padding:7px 14px;font-size:12.5px">⬇ To'lovlar (CSV)</a>
+  </div>
+  <div class="bd">
+    {% if group_rows %}
+    <table>
+      <thead><tr><th>Guruh</th><th>O'qituvchi</th><th>Davomat</th><th>O'rtacha baho</th><th>O'quvchi</th></tr></thead>
+      <tbody>
+        {% for g in group_rows %}
+        <tr>
+          <td><b>{{ g.name }}</b></td>
+          <td class="muted">{{ g.teacher }}</td>
+          <td>{% if g.records %}<span class="pill {{ 'ok' if g.rate>=80 else 'warn' if g.rate>=50 else 'bad' }}">{{ g.rate }}%</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td>{% if g.avg is not none %}<b>{{ g.avg }}</b>{% else %}<span class="muted">—</span>{% endif %}</td>
+          <td>{{ g.students }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Ma'lumot yo'q.</div>{% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>O'qituvchilar faolligi</h2></div>
+  <div class="bd">
+    {% if teacher_rows %}
+    <table>
+      <thead><tr><th>O'qituvchi</th><th>Darslar</th><th>Baholar</th></tr></thead>
+      <tbody>
+        {% for t in teacher_rows %}
+        <tr><td><b>{{ t.name }}</b></td><td>{{ t.lessons }}</td><td>{{ t.grades }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Ma'lumot yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

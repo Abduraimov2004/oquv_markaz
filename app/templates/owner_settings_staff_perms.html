@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Huquqlar{% endblock %}
+{% block heading %}Administrator huquqlari{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p><b>{{ member.full_name or member.phone }}</b> uchun qaysi panellar ko'rinishini belgilang. Faqat belgilangan bo'limlar shu administratorga ochiq bo'ladi.</p></div>
+  <a href="/owner/settings/staff" class="muted" style="font-size:13px">← Administratorlar</a>
+</div>
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Huquqlar saqlandi.</div>{% endif %}
+
+<div class="formcard">
+  <h2>Ruxsat etilgan bo'limlar</h2>
+  <form method="post" action="/owner/settings/staff/{{ member.id }}/perms">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin:6px 0 16px">
+      {% for key, label in panels %}
+      <label style="display:flex;align-items:center;gap:10px;padding:11px 13px;border:1px solid var(--line);border-radius:10px;cursor:pointer">
+        <input type="checkbox" name="p_{{ key }}" {{ 'checked' if key in cur }} style="width:18px;height:18px">
+        <span style="font-weight:600">{{ label }}</span>
+      </label>
+      {% endfor %}
+    </div>
+    <button class="btn" type="submit">Saqlash</button>
+    <p class="muted" style="font-size:12px;margin-top:10px">"Bosh sahifa" har doim ochiq. Sozlamalar, obuna va administrator boshqaruvi faqat markaz egasida qoladi.</p>
+  </form>
+</div>
+
+{% endblock %}

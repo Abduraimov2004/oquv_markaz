@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Yangiliklar{% endblock %}
+{% block heading %}Yangiliklar{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>E'lon yozing — barcha markaz egalari uni o'z bosh sahifasida ko'radi.</p></div></div>
+
+<div class="formcard">
+  <h2>Yangi e'lon</h2>
+  <form method="post" action="/admin/news/add">
+    <div><label class="f">Sarlavha</label><input name="title" placeholder="Yangilik sarlavhasi" required></div>
+    <div style="margin-top:12px"><label class="f">Matn</label><textarea name="body" placeholder="E'lon matni..."></textarea></div>
+    <div style="margin-top:12px"><label class="f">Qachongacha ko'rinsin? (ixtiyoriy — bo'sh = doimiy)</label><input name="expires_at" type="date" style="max-width:200px"></div>
+    <div style="margin-top:14px"><button class="btn" type="submit">E'lon qilish</button></div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>E'lonlar ({{ news|length }})</h2></div>
+  <div class="bd">
+    {% if news %}
+    <table>
+      <tbody>
+        {% for n in news %}
+        <tr>
+          <td>
+            <b>{{ n.title }}</b>
+            {% if n.body %}<br><span class="muted" style="font-size:12.5px">{{ n.body }}</span>{% endif %}
+            <br><span class="muted" style="font-size:11px">{{ n.created_at[:10] }}{% if n.expires_at %} · {{ n.expires_at[:10] }} gacha{% endif %}</span>
+          </td>
+          <td style="text-align:right;vertical-align:top">
+            <form method="post" action="/admin/news/{{ n.id }}/delete" style="display:inline">
+              <button class="btn" style="padding:6px 10px;font-size:12px;background:#c2563f">O'chirish</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali e'lon yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

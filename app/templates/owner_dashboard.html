@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Bosh sahifa — Markaz{% endblock %}
+{% block heading %}Bosh sahifa{% endblock %}
+{% block content %}
+{% if request and request.query_params.get('denied') %}<div class="err">Bu bo'limga ruxsatingiz yo'q. Markaz egasiga murojaat qiling.</div>{% endif %}
+
+{% if news %}
+<div style="margin-bottom:18px">
+  {% for n in news %}
+  <div class="card" style="border-left:3px solid var(--accent);margin-bottom:10px">
+    <div style="padding:13px 16px">
+      <b style="font-family:'Sora'">📣 {{ n.title }}</b>
+      {% if n.body %}<div class="muted" style="font-size:13px;margin-top:3px">{{ n.body }}</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="stats" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat">
+    <div class="top"><span class="tag">Jami o'quvchi</span><span class="ic">☺</span></div>
+    <div class="num">{{ stats.students }}</div>
+    <div class="sub">{{ stats.groups }} ta guruhda</div>
+  </div>
+  <div class="stat amber">
+    <div class="top"><span class="tag">Qarzdorlar</span><span class="ic">₸</span></div>
+    <div class="num">{{ stats.pending_payments }}</div>
+    <div class="sub">{{ "{:,.0f}".format(stats.total_debt).replace(",", " ") }} so'm qarz</div>
+  </div>
+  <div class="stat green">
+    <div class="top"><span class="tag">Lidlar</span><span class="ic">◎</span></div>
+    <div class="num">{{ stats.leads_active }}</div>
+    <div class="sub">bugun +{{ stats.leads_today }} yangi</div>
+  </div>
+  <div class="stat {{ 'red' if stats.month_profit < 0 else '' }}">
+    <div class="top"><span class="tag">Foyda · {{ month_label }}</span><span class="ic">★</span></div>
+    <div class="num" style="font-size:20px;color:{{ 'var(--danger)' if stats.month_profit < 0 else 'var(--good)' }}">{{ "{:,.0f}".format(stats.month_profit).replace(",", " ") }}</div>
+    <div class="sub">so'm</div>
+  </div>
+</div>
+
+{% if request and request.query_params.get('bday') %}<div class="err" style="background:#e3f3eb;color:#1f7a52">🎂 Tabrik yuborildi!</div>{% endif %}
+{% if birthdays %}
+<div class="card" style="margin-bottom:18px">
+  <div class="hd"><h2>🎂 Yaqin tug'ilgan kunlar</h2><span class="muted" style="font-size:12.5px">bugun va ertaga</span></div>
+  <div class="bd">
+    <table>
+      <tbody>
+        {% for b in birthdays %}
+        <tr>
+          <td><b>{{ b.name }}</b> {% if b.today %}<span class="pill ok">Bugun!</span>{% else %}<span class="pill warn">Ertaga</span>{% endif %}</td>
+          <td class="muted">{{ b.date_label }}</td>
+          <td class="muted">{{ b.phone or "—" }}</td>
+          <td style="text-align:right">
+            {% if b.greeted %}
+            <span class="pill ok">✓ Tabrik jo'natilgan</span>
+            {% else %}
+            <form method="post" action="/owner/students/{{ b.id }}/birthday" style="margin:0"
+                  onsubmit="var m=prompt('Tabrik matni (tahrirlang yoki o\'zingiz yozing):', this.message.value); if(m===null||!m.trim())return false; this.message.value=m; return true;">
+              <input type="hidden" name="message" value="🎂 Hurmatli ota-ona! {{ b.name }}ni tug'ilgan kuni bilan tabriklaymiz! Sog'lik va omad tilaymiz.">
+              <button class="btn" style="padding:6px 12px;font-size:12px">🎉 Tabrik</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid2" style="margin-bottom:18px">
+  <div class="card">
+    <div class="hd"><h2>Bugungi darslar</h2><a href="/owner/schedule" class="muted" style="font-size:12.5px">Jadval →</a></div>
+    <div class="bd">
+      {% if today_lessons %}
+      <table>
+        <tbody>
+          {% for l in today_lessons %}
+          <tr>
+            <td>
+              {% if l.state=="now" %}<span class="pill ok" style="margin-right:6px">hozir</span>
+              {% elif l.state=="next" %}<span class="pill" style="background:#e7eefb;color:#2f4d8a;margin-right:6px">keyin</span>
+              {% else %}<span class="pill" style="background:#eef1f0;color:#8a99a0;margin-right:6px">o'tdi</span>{% endif %}
+              <b>{{ l.name }}</b>
+            </td>
+            <td class="muted">{{ l.teacher }}</td>
+            <td class="muted" style="text-align:right">{{ l.time }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<div class="empty">Bugunga jadvalda dars yo'q.</div>{% endif %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="hd"><h2>Bugun darsda</h2></div>
+    <div class="bd" style="display:flex;align-items:center;gap:20px;padding:20px 18px">
+      <div><div class="num" style="font-size:32px;font-family:'Sora';color:var(--good)">{{ stats.present }}</div><div class="muted" style="font-size:12px">keldi</div></div>
+      <div><div class="num" style="font-size:32px;font-family:'Sora';color:var(--muted)">{{ stats.absent }}</div><div class="muted" style="font-size:12px">kelmadi</div></div>
+      <div style="margin-left:auto;text-align:right"><div class="muted" style="font-size:12px">{{ stats.teachers }} o'qituvchi · {{ stats.groups }} guruh</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="grid2">
+  <div class="card">
+    <div class="hd"><h2>Diqqat kerak — qarzdorlar</h2><a href="/owner/payments?status=owing" class="muted" style="font-size:12.5px">To'lovlar →</a></div>
+    <div class="bd">
+      {% if attention %}
+      <table>
+        <tbody>
+          {% for a in attention %}
+          <tr>
+            <td><b>{{ a.name }}</b></td>
+            <td class="muted" style="text-align:right">{{ a.reason }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty">Hammasi joyida — diqqat talab qiladigan holat yo'q ✓</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="hd"><h2>Faol guruhlar reytingi</h2><span class="muted" style="font-size:12.5px">{{ month_label }} · baho + davomat</span></div>
+    <div class="bd">
+      {% if ranked %}
+      <table>
+        <thead><tr><th>#</th><th>Guruh</th><th>O'rtacha baho</th><th>Davomat</th></tr></thead>
+        <tbody>
+          {% for g in ranked %}
+          <tr>
+            <td style="font-family:'Sora';font-weight:700">{% if loop.index==1 %}🥇{% elif loop.index==2 %}🥈{% elif loop.index==3 %}🥉{% else %}{{ loop.index }}{% endif %}</td>
+            <td><b>{{ g.name }}</b><br><span class="muted" style="font-size:12px">{{ g.teacher }}</span></td>
+            <td>{% if g.avg %}<b>{{ g.avg }}</b>{% else %}<span class="muted">—</span>{% endif %}</td>
+            <td>{{ g.rate }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="muted" style="padding:10px 14px 0;font-size:12px">Har oy boshida natijalar yangilanadi (noldan boshlanadi).</p>
+      {% else %}
+      <div class="empty">Hali baho/davomat yo'q.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

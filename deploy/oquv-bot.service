@@ -1,0 +1,12 @@
+[Unit]
+Description=Oquv Markaz - Telegram bot
+After=network.target
+
+[Service]
+WorkingDirectory=/root/oquv_markaz
+ExecStart=/root/oquv_markaz/.venv/bin/python -m bot.bot
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
