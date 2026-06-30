@@ -5,6 +5,7 @@ Rollarni ulaydi: common (start/bog'lanish) + teacher + parent.
 Ishga tushirish (web serverdan ALOHIDA terminalda):
     python -m bot.bot
 """
+import app.tz  # noqa: F401  (vaqt zonasi)
 import asyncio
 import logging
 

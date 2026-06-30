@@ -18,6 +18,14 @@
       <div><label class="f">F.I.O.</label><input name="full_name" placeholder="Qabulxona xodimi" required></div>
       <div><label class="f">Telefon (login)</label><input name="phone" placeholder="+998 90 ..." required></div>
       <div><label class="f">Parol</label><input name="password" type="text" placeholder="parol123" required></div>
+      {% if branches %}
+      <div><label class="f">🏢 Filial</label>
+        <select name="branch_id" required>
+          <option value="">— filial tanlang —</option>
+          {% for b in branches %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div><button class="btn" type="submit">+ Qo'shish</button></div>
     </div>
   </form>
@@ -28,12 +36,22 @@
   <div class="bd">
     {% if staff %}
     <table>
-      <thead><tr><th>F.I.O.</th><th>Telefon</th><th>Parol yangilash</th><th></th></tr></thead>
+      <thead><tr><th>F.I.O.</th><th>Telefon</th>{% if branches %}<th>🏢 Filial</th>{% endif %}<th>Parol yangilash</th><th></th></tr></thead>
       <tbody>
         {% for x in staff %}
         <tr>
           <td><b>{{ x.full_name or "—" }}</b></td>
           <td class="muted">{{ x.phone }}</td>
+          {% if branches %}
+          <td>
+            <form method="post" action="/owner/settings/staff/{{ x.id }}/branch" style="display:flex;gap:4px">
+              <select name="branch_id" onchange="this.form.submit()" style="width:auto;min-width:120px;padding:6px 8px;font-size:13px">
+                <option value="">— belgilanmagan —</option>
+                {% for b in branches %}<option value="{{ b.id }}" {{ 'selected' if x.branch_id==b.id }}>{{ b.name }}</option>{% endfor %}
+              </select>
+            </form>
+          </td>
+          {% endif %}
           <td>
             <form method="post" action="/owner/settings/staff/{{ x.id }}/password" style="display:flex;gap:6px">
               <input name="password" type="text" placeholder="yangi parol" style="width:140px;padding:6px 8px;font-size:13px" required>

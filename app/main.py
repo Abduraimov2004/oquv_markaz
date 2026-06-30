@@ -2,6 +2,7 @@
 
 Ishga tushirish:  uvicorn app.main:app --reload
 """
+import app.tz  # noqa: F401  (vaqt zonasi — eng birinchi)
 from fastapi import FastAPI, Request, Form
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware

@@ -160,27 +160,31 @@ def month_bounds(ym: str):
     return ym + "-01", add_months(ym, 1) + "-01"
 
 
-def income_for_month(cid: str, ym: str) -> float:
+def income_for_month(cid: str, ym: str, student_ids=None) -> float:
     s, e = month_bounds(ym)
     try:
-        rows = (supabase.table("payments").select("amount").eq("center_id", cid)
+        rows = (supabase.table("payments").select("amount, student_id").eq("center_id", cid)
                 .eq("status", "paid").gte("paid_at", s).lt("paid_at", e).execute().data) or []
     except Exception:
         rows = []
+    if student_ids is not None:
+        rows = [r for r in rows if r.get("student_id") in student_ids]
     return sum(float(r["amount"] or 0) for r in rows)
 
 
-def expenses_for_month(cid: str, ym: str) -> float:
+def expenses_for_month(cid: str, ym: str, branch_id=None) -> float:
     s, e = month_bounds(ym)
     try:
-        rows = (supabase.table("expenses").select("amount").eq("center_id", cid)
+        rows = (supabase.table("expenses").select("amount, branch_id").eq("center_id", cid)
                 .gte("spent_at", s).lt("spent_at", e).execute().data) or []
     except Exception:
         rows = []
+    if branch_id is not None:
+        rows = [r for r in rows if r.get("branch_id") == branch_id]
     return sum(float(r["amount"] or 0) for r in rows)
 
 
-def payouts_for_month(cid: str, ym: str) -> dict:
+def payouts_for_month(cid: str, ym: str, teacher_ids=None) -> dict:
     s, e = month_bounds(ym)
     try:
         rows = (supabase.table("teacher_payouts").select("teacher_id, amount").eq("center_id", cid)
@@ -189,11 +193,25 @@ def payouts_for_month(cid: str, ym: str) -> dict:
         rows = []
     m = {}
     for p in rows:
+        if teacher_ids is not None and p["teacher_id"] not in teacher_ids:
+            continue
         m[p["teacher_id"]] = m.get(p["teacher_id"], 0.0) + float(p["amount"] or 0)
     return m
 
 
-def paid_total_by_pair(cid: str) -> dict:
+def branch_members(cid: str, bid):
+    """Filialdagi (student_ids, group_ids, teacher_ids). bid yo'q -> (None, None, None) = hammasi."""
+    if not bid:
+        return None, None, None
+    def _ids(tbl):
+        try:
+            return {r["id"] for r in supabase.table(tbl).select("id").eq("center_id", cid).eq("branch_id", bid).execute().data or []}
+        except Exception:
+            return set()
+    return _ids("students"), _ids("groups"), _ids("teachers")
+
+
+def paid_total_by_pair(cid: str, student_ids=None) -> dict:
     """(student_id, group_id) -> umrbod jami to'langan (oylik balans uchun)."""
     try:
         rows = (supabase.table("payments").select("student_id, group_id, amount")
@@ -202,6 +220,8 @@ def paid_total_by_pair(cid: str) -> dict:
         rows = []
     m = {}
     for p in rows:
+        if student_ids is not None and p["student_id"] not in student_ids:
+            continue
         k = (p["student_id"], p.get("group_id"))
         m[k] = m.get(k, 0.0) + float(p["amount"] or 0)
     return m

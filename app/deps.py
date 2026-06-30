@@ -192,23 +192,39 @@ def _staff_guard(request: Request, allow: tuple) -> dict:
     user["center_name"] = c.get("name")
     user["center_logo"] = c.get("logo_url")
     user["is_owner"] = (role == "owner")
-    try:
-        from app import notif as _notif
-        user["notif_unread"] = _notif.unread_count(user.get("center_id"))
-    except Exception:
-        user["notif_unread"] = 0
-    # 🏢 Filiallar — ro'yxat + tanlangan filial
+    # 🏢 Filiallar — owner istalganini tanlaydi; admin tayinlangan filialiga qulflangan
     cid2 = user.get("center_id")
     try:
-        brs = supabase.table("branches").select("id, name").eq("center_id", cid2).order("name").execute().data or []
+        brs = supabase.table("branches").select("id, name, created_at").eq("center_id", cid2).order("created_at").execute().data or []
     except Exception:
         brs = []
-    bid = active_branch(request, cid2)
-    if bid and not any(b["id"] == bid for b in brs):
-        bid = None
+    if role == "owner":
+        bid = active_branch(request, cid2)
+        if not any(b["id"] == bid for b in brs):
+            bid = None
+        if not bid and brs:
+            bid = brs[0]["id"]            # standart: eng eski filial
+    else:  # reception — o'z filialiga qulflangan
+        bid = user.get("branch_id")
+        if not bid:
+            try:
+                urow = supabase.table("users").select("branch_id").eq("id", user.get("id")).limit(1).execute().data or []
+                bid = urow[0].get("branch_id") if urow else None
+            except Exception:
+                bid = None
+        if bid and not any(b["id"] == bid for b in brs):
+            bid = None
+        if not bid and brs:
+            bid = brs[0]["id"]            # tayinlanmagan bo'lsa — eng eski filial
     user["branches"] = brs
     user["active_branch"] = bid
     user["active_branch_name"] = next((b["name"] for b in brs if b["id"] == bid), None)
+    # 🔔 o'qilmagan bildirishnoma — faqat shu filial bo'yicha
+    try:
+        from app import notif as _notif
+        user["notif_unread"] = _notif.unread_count(cid2, bid)
+    except Exception:
+        user["notif_unread"] = 0
     if role == "reception":
         perms = _load_perms(user.get("id"))
         user["perms"] = perms

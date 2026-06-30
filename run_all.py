@@ -7,6 +7,7 @@ web'ni --reload bilan alohida ishlatganingiz qulayroq:
     uvicorn app.main:app --reload   (alohida terminal)
     python -m bot.bot               (alohida terminal)
 """
+import app.tz  # noqa: F401  (vaqt zonasi)
 import asyncio
 import socket
 

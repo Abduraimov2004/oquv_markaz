@@ -16,7 +16,7 @@
   <div class="bd" style="padding:0">
     {% if items %}
     {% for n in items %}
-    <div style="display:flex;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);{{ 'background:var(--soft)' if not n.read_at }}">
+    <div style="display:flex;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);align-items:center;{{ 'background:var(--soft)' if not n.read_at }}">
       <div style="width:8px;flex-shrink:0;display:flex;justify-content:center">
         {% if not n.read_at %}<span style="width:8px;height:8px;border-radius:50%;background:var(--brand);margin-top:6px"></span>{% endif %}
       </div>
@@ -28,6 +28,9 @@
         {% if n.body %}<div class="muted" style="font-size:13px;margin-top:3px">{{ n.body }}</div>{% endif %}
         <div class="muted" style="font-size:11.5px;margin-top:4px">{{ (n.created_at or '')[:16].replace('T',' ') }}</div>
       </div>
+      {% if n.kind=='expense' %}
+      <a href="/owner/expense-requests" class="icon-btn" title="Tasdiqlash sahifasiga o'tish" style="flex-shrink:0">→</a>
+      {% endif %}
     </div>
     {% endfor %}
     {% else %}

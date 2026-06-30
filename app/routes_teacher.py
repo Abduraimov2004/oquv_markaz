@@ -200,6 +200,7 @@ async def grades_save(request: Request, user: dict = Depends(teacher_required)):
             continue
         comment = (form.get(f"comment_{s['id']}") or "").strip()
         ex = existing.get(s["id"])
+        awarded = False
         if ex:
             if str(ex.get("grade")) != str(g) or (ex.get("comment") or "") != comment:
                 _log_edit(cid, tid, "grade", s["id"], gid, d, ex.get("grade"), g)
@@ -209,6 +210,7 @@ async def grades_save(request: Request, user: dict = Depends(teacher_required)):
                     txt += f"\nIzoh: {comment}"
                 await notify_parent(s["id"], txt)
                 saved += 1
+                awarded = (str(ex.get("grade")) != str(g))  # baho o'zgargandagina coin
         else:
             supabase.table("grades").insert({
                 "center_id": cid, "student_id": s["id"], "group_id": gid, "teacher_id": tid,
@@ -219,6 +221,16 @@ async def grades_save(request: Request, user: dict = Depends(teacher_required)):
                 txt += f"\nIzoh: {comment}"
             await notify_parent(s["id"], txt)
             saved += 1
+            awarded = True
+        # 🪙 baho uchun coin: 5->test90, 4->test70, 3->uy vazifasi
+        if awarded:
+            try:
+                gv = int(g)
+                rule = "test90" if gv >= 5 else ("test70" if gv == 4 else ("homework" if gv == 3 else None))
+                if rule:
+                    coinmod.award_rule(cid, s["id"], rule, f"Baho: {gv}")
+            except Exception:
+                pass
 
     return RedirectResponse(f"/teacher/grades?group={gid}&date={d}&saved={saved}", status_code=303)
 

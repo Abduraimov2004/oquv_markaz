@@ -253,13 +253,14 @@
           <h1>{% block heading %}Bosh sahifa{% endblock %}</h1>
         </div>
         <div class="who">
-          {% if user.role in ['owner','reception'] and user.branches %}
+          {% if user.is_owner and user.branches %}
           <form method="post" action="/owner/branch/select" style="margin:0">
             <select name="branch_id" onchange="this.form.submit()" title="Filial" style="width:auto;min-width:150px;padding:8px 10px;font-size:13px">
-              <option value="" {{ 'selected' if not user.active_branch }}>🏢 Barcha filiallar</option>
-              {% for b in user.branches %}<option value="{{ b.id }}" {{ 'selected' if user.active_branch==b.id }}>{{ b.name }}</option>{% endfor %}
+              {% for b in user.branches %}<option value="{{ b.id }}" {{ 'selected' if user.active_branch==b.id }}>🏢 {{ b.name }}</option>{% endfor %}
             </select>
           </form>
+          {% elif user.role == 'reception' and user.active_branch_name %}
+          <span title="Sizning filialingiz" style="font-size:13px;font-weight:600;color:var(--brand-2);background:var(--soft);border:1px solid var(--line);border-radius:9px;padding:7px 12px">🏢 {{ user.active_branch_name }}</span>
           {% endif %}
           <button class="icon-btn" onclick="toggleTheme()" title="Tungi/kunduzgi rejim" id="themeBtn" aria-label="Mavzu">🌙</button>
           {% if user.role in ['owner','reception'] %}
