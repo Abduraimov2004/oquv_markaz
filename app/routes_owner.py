@@ -874,7 +874,7 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
                "collected": data.income_for_month(cid, sel_month, _branch_sids), "has_fee": has_fee}
 
     # 💳 To'lov turlari bo'yicha taqsimot
-    mlabel = {"naqd": "Naqd", "karta": "Karta", "click": "Click", "payme": "Payme", "o'tkazma": "O'tkazma"}
+    mlabel = {"naqd": "Naqd", "karta": "Karta", "click": "Click", "payme": "Payme", "o'tkazma": "O'tkazma", "coin": "🪙 Coin"}
     method_stats = {}
     try:
         prows = supabase.table("payments").select("method, amount, student_id").eq("center_id", cid).execute().data or []
@@ -892,7 +892,7 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
         "request": request, "user": user, "active": "payments",
         "rows": rows, "groups": groups, "sel_group": sel_group, "sel_status": sel_status,
         "sel_month": sel_month, "month_label": _ym_label(sel_month), "months": months,
-        "now_ym": now_ym, "is_current": sel_month == now_ym, "accounts": data.accounts(cid),
+        "now_ym": now_ym, "is_current": sel_month == now_ym, "accounts": data.accounts(cid, branch_id=user.get("active_branch")),
         "q": request.query_params.get("q") or "", "summary": summary,
         "method_stats": method_stats,
         "err": request.query_params.get("err"),
@@ -976,7 +976,12 @@ async def earnings_page(request: Request, user: dict = Depends(staff_required)):
                      "pct": pct, "earn": earn, "paid": paid, "remaining": remaining})
     rows.sort(key=lambda r: r["earn"], reverse=True)
 
-    total_collected = data.income_this_month(cid)
+    _abid = user.get("active_branch")
+    if _abid:
+        _bst = {s["id"] for s in supabase.table("students").select("id").eq("center_id", cid).eq("branch_id", _abid).execute().data or []}
+        total_collected = data.income_for_month(cid, data.cur_ym(), _bst)
+    else:
+        total_collected = data.income_this_month(cid)
     unattributed = max(0.0, total_collected - attributed)
 
     return templates.TemplateResponse("owner_earnings.html", {
@@ -1062,6 +1067,7 @@ async def settings_messages_save(request: Request, user: dict = Depends(owner_re
 async def settings_fees(request: Request, user: dict = Depends(owner_required)):
     cid = user["center_id"]
     groups = supabase.table("groups").select("*").eq("center_id", cid).order("name").execute().data or []
+    groups = _bfilter(groups, user.get("active_branch"))
     enr = data.center_enrollments(cid)
     cnt = {}
     for e in enr:
@@ -1132,7 +1138,7 @@ async def teacher_detail(tid: str, request: Request, user: dict = Depends(staff_
         "t": t, "pct": pct, "groups": g_rows, "collected": coll_total,
         "earned": earned, "paid": paid, "remaining": remaining,
         "payouts": payouts, "month": date.today().strftime("%Y-%m"),
-        "accounts": data.accounts(cid),
+        "accounts": data.accounts(cid, branch_id=user.get("active_branch")),
         "saved": request.query_params.get("saved"), "err": request.query_params.get("err"),
     })
 
@@ -1226,7 +1232,7 @@ async def student_detail(sid: str, request: Request, user: dict = Depends(staff_
         "student": student, "rows": rows, "others": others, "history": history,
         "is_active": student.get("active", True) is not False,
         "total_fee": total_fee, "total_paid": total_paid_all, "total_debt": total_debt,
-        "now_label": _ym_label(now_ym), "accounts": data.accounts(cid),
+        "now_label": _ym_label(now_ym), "accounts": data.accounts(cid, branch_id=user.get("active_branch")),
         "parent_link": parent_link,
         "coin_balance": coinmod.balance(sid), "coin_value": coinmod.rules(cid).get("value", 100),
     })
@@ -1246,14 +1252,31 @@ async def student_unenroll(sid: str, request: Request, user: dict = Depends(staf
 
 @router.post("/students/{sid}/pay")
 async def student_pay(sid: str, request: Request, user: dict = Depends(staff_required),
-                      group_id: str = Form(...), amount: str = Form(...),
-                      account_id: str = Form(""), method: str = Form("")):
+                      group_id: str = Form(...), amount: str = Form(""),
+                      account_id: str = Form(""), method: str = Form(""), use_coins: str = Form("")):
+    cid = user["center_id"]
     try:
-        amt = float(str(amount).replace(" ", "").replace(",", ""))
+        amt = float(str(amount).replace(" ", "").replace(",", "")) if amount.strip() else 0
     except ValueError:
         amt = 0
+    # 🪙 Coin bilan to'lov (chegirma sifatida)
+    try:
+        coins = int(str(use_coins).strip() or 0)
+    except ValueError:
+        coins = 0
+    if coins > 0:
+        have = coinmod.balance(sid)
+        coins = min(coins, have)
+        if coins > 0:
+            cval = int(coinmod.rules(cid).get("value", 100) or 100)
+            coin_amt = coins * cval
+            # coin qiymati to'lov sifatida yoziladi (qarz kamayadi), usuli = coin
+            cbase = {"center_id": cid, "student_id": sid, "amount": coin_amt,
+                     "status": "paid", "paid_at": datetime.now().isoformat()}
+            _insert_payment(cbase, group_id, "", "coin")
+            coinmod.award(cid, sid, -coins, "redeem", "To'lovda ishlatildi")
     if amt > 0:
-        base = {"center_id": user["center_id"], "student_id": sid, "amount": amt,
+        base = {"center_id": cid, "student_id": sid, "amount": amt,
                 "status": "paid", "paid_at": datetime.now().isoformat()}
         _insert_payment(base, group_id, account_id, method)
     return RedirectResponse(f"/owner/students/{sid}", status_code=303)
@@ -1734,8 +1757,8 @@ async def cashbox_page(request: Request, user: dict = Depends(staff_required)):
     cats = sorted(cat.items(), key=lambda x: -x[1])
     cat_max = cats[0][1] if cats else 0
 
-    accs = data.accounts(cid, only_active=False)
-    bals = data.account_balances(cid)
+    accs = data.accounts(cid, only_active=False, branch_id=_abid)
+    bals = data.account_balances(cid, branch_id=_abid)
     acc_rows = [dict(a, balance=bals.get(a["id"], 0.0)) for a in accs]
     total_balance = sum(b for b in bals.values())
 
@@ -1789,11 +1812,18 @@ async def cashbox_account_add(request: Request, user: dict = Depends(staff_requi
     except ValueError:
         ob = 0
     try:
-        supabase.table("accounts").insert({
+        obj = {
             "center_id": user["center_id"], "name": name.strip() or "Hisob",
             "kind": kind.strip() or "cash", "card_number": card_number.strip() or None,
             "opening_balance": ob,
-        }).execute()
+        }
+        if user.get("active_branch"):
+            obj["branch_id"] = user["active_branch"]
+        try:
+            supabase.table("accounts").insert(obj).execute()
+        except Exception:
+            obj.pop("branch_id", None)
+            supabase.table("accounts").insert(obj).execute()
     except Exception:
         pass
     return RedirectResponse("/owner/cashbox?saved=1", status_code=303)

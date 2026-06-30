@@ -4,7 +4,7 @@
 {% block content %}
 
 <div class="pagehead">
-  <div><p>Har fanga (guruhga) alohida oylik to'lov belgilang. To'lovlar va qarzlar shu narxlar asosida hisoblanadi.</p></div>
+  <div><p>Har fanga (guruhga) alohida oylik to'lov belgilang. To'lovlar va qarzlar shu narxlar asosida hisoblanadi.{% if user.active_branch_name %} <b style="color:var(--brand-2)">🏢 {{ user.active_branch_name }}</b> filiali fanlari.{% endif %}</p></div>
   <a href="/owner/settings" class="muted" style="font-size:13px">← Sozlamalar</a>
 </div>
 

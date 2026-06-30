@@ -61,11 +61,14 @@
     <div style="display:flex;gap:8px;align-items:center;margin-top:14px;flex-wrap:wrap">
       <form method="post" action="/owner/students/{{ student.id }}/pay" style="display:inline-flex;gap:6px">
         <input type="hidden" name="group_id" value="{{ r.gid }}">
-        <input name="amount" type="number" placeholder="{{ (r.debt or r.fee)|int }} (qarzni yopish)" style="width:200px;padding:8px 11px">
+        <input name="amount" type="number" placeholder="{{ (r.debt or r.fee)|int }} (qarzni yopish)" style="width:180px;padding:8px 11px">
         {% if accounts %}
         <select name="account_id" style="width:auto">
           {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
         </select>
+        {% endif %}
+        {% if coin_balance and coin_balance > 0 %}
+        <input name="use_coins" type="number" min="0" max="{{ coin_balance }}" placeholder="🪙 coin" title="Coin ishlatish ({{ coin_balance }} ta bor, 1 coin = {{ coin_value }} so'm)" style="width:110px;padding:8px 11px">
         {% endif %}
         <button class="btn" style="padding:8px 14px;font-size:13px">To'lov qabul qilish</button>
       </form>

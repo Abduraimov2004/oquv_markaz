@@ -336,8 +336,8 @@ def absence_streaks(cid: str, threshold: int = 3) -> list:
 
 
 # ---- HISOBLAR (kassa: naqd / karta / click / payme) -----------------
-def accounts(cid: str, only_active: bool = True) -> list:
-    """Markaz hisoblari (sort bo'yicha)."""
+def accounts(cid: str, only_active: bool = True, branch_id=None) -> list:
+    """Markaz hisoblari (sort bo'yicha). branch_id berilsa — faqat o'sha filial."""
     try:
         q = supabase.table("accounts").select("*").eq("center_id", cid)
         rows = q.execute().data or []
@@ -345,13 +345,15 @@ def accounts(cid: str, only_active: bool = True) -> list:
         rows = []
     if only_active:
         rows = [a for a in rows if a.get("is_active", True) is not False]
+    if branch_id is not None:
+        rows = [a for a in rows if a.get("branch_id") == branch_id]
     rows.sort(key=lambda a: (a.get("sort", 0), a.get("created_at", "")))
     return rows
 
 
-def account_balances(cid: str) -> dict:
+def account_balances(cid: str, branch_id=None) -> dict:
     """{account_id: balans} = boshlang'ich + kirim(to'lovlar) − chiqim(xarajat/maosh/obuna)."""
-    accs = accounts(cid, only_active=False)
+    accs = accounts(cid, only_active=False, branch_id=branch_id)
     bal = {a["id"]: float(a.get("opening_balance") or 0) for a in accs}
 
     def _add(table, sign):

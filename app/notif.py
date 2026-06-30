@@ -5,9 +5,11 @@ from app.db import supabase
 
 
 def _visible(n, bid):
-    """branch_id NULL = umumiy (hammaga). Aks holda faqat o'sha filialga."""
-    nb = n.get("branch_id")
-    return (nb is None) or (bid is None) or (nb == bid)
+    """Filial tanlangan bo'lsa — faqat o'sha filial bildirishnomasi (aralashmaydi).
+    Filialsiz markaz (bid yo'q) — hammasi ko'rinadi."""
+    if not bid:
+        return True
+    return n.get("branch_id") == bid
 
 
 def notify(cid: str, title: str, body: str = "", kind: str = "info", branch_id=None):
