@@ -3,7 +3,80 @@
 {% block heading %}📈 Analitika{% endblock %}
 {% block content %}
 
-<div class="pagehead"><div><p>Lidlar voronkasi, o'quvchilar saqlanishi (retention) va moliyaviy tendensiya.</p></div></div>
+<div class="pagehead" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <div><p>Barcha filiallar bo'yicha oylik moliyaviy hisobot.</p></div>
+  <form method="get" style="margin:0">
+    <select name="month" onchange="this.form.submit()" style="width:auto;padding:8px 12px;font-weight:600">
+      {% for ym, lbl in months %}<option value="{{ ym }}" {{ 'selected' if ym==sel_month }}>{{ lbl }}</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+<!-- Moliyaviy ko'rsatkichlar (tanlangan oy) -->
+<div class="stats" style="grid-template-columns:repeat(5,1fr)">
+  <div class="stat"><div class="top"><span class="tag">Tushum</span><span class="ic">$</span></div><div class="num" style="font-size:19px">{{ "{:,.0f}".format(fin.income).replace(",", " ") }}</div><div class="sub">so'm</div></div>
+  <div class="stat"><div class="top"><span class="tag">O'qituvchi ulushi</span><span class="ic">◷</span></div><div class="num" style="font-size:19px">{{ "{:,.0f}".format(fin.payouts).replace(",", " ") }}</div><div class="sub">maosh</div></div>
+  <div class="stat red"><div class="top"><span class="tag">Xarajatlar</span><span class="ic">↘</span></div><div class="num" style="font-size:19px">{{ "{:,.0f}".format(fin.expenses).replace(",", " ") }}</div><div class="sub">so'm</div></div>
+  <div class="stat {{ 'green' if fin.profit >= 0 else 'red' }}"><div class="top"><span class="tag">Sof foyda</span><span class="ic">{{ '↗' if fin.profit >= 0 else '↘' }}</span></div><div class="num" style="font-size:19px">{{ "{:,.0f}".format(fin.profit).replace(",", " ") }}</div><div class="sub">so'm</div></div>
+  <div class="stat green"><div class="top"><span class="tag">Sinov → Aktiv</span><span class="ic">✦</span></div><div class="num">{{ funnel.trial_conv }}%</div><div class="sub">{{ churn }}% churn</div></div>
+</div>
+
+<div class="grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px">
+  <!-- Filiallar foydasi -->
+  <div class="card">
+    <div class="hd"><h2>🏢 Filiallar foydasi</h2></div>
+    <div class="bd">
+      {% if branch_profit %}
+        {% for b in branch_profit %}
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:4px">
+            <b>{{ b.name }}</b>
+            <span style="color:{{ 'var(--brand-2)' if b.profit >= 0 else 'var(--danger)' }};font-weight:700">{{ "{:,.0f}".format(b.profit).replace(",", " ") }} so'm</span>
+          </div>
+          <div style="height:8px;background:var(--soft);border-radius:5px;overflow:hidden"><div style="height:100%;width:{{ b.bar }}%;background:var(--brand)"></div></div>
+          <div class="muted" style="font-size:11.5px;margin-top:3px">Tushum {{ "{:,.0f}".format(b.income).replace(",", " ") }} · Chiqim {{ "{:,.0f}".format(b.expense).replace(",", " ") }}</div>
+        </div>
+        {% endfor %}
+      {% else %}<div class="empty">Filial yo'q.</div>{% endif %}
+    </div>
+  </div>
+
+  <!-- Moliya taqsimoti -->
+  <div class="card">
+    <div class="hd"><h2>💰 Moliya taqsimoti</h2></div>
+    <div class="bd">
+      {% for f in fin_bars %}
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:4px"><span>{{ f.label }}</span><b>{{ "{:,.0f}".format(f.val).replace(",", " ") }}</b></div>
+        <div style="height:10px;background:var(--soft);border-radius:6px;overflow:hidden"><div style="height:100%;width:{{ f.pct }}%;background:{{ f.color }}"></div></div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- So'nggi tranzaksiyalar -->
+<div class="card" style="margin-top:18px">
+  <div class="hd"><h2>🧾 So'nggi tranzaksiyalar ({{ month_label }})</h2></div>
+  <div class="bd">
+    {% if recent_tx %}
+    <table>
+      <tbody>
+        {% for t in recent_tx %}
+        <tr>
+          <td style="width:30px">{% if t.kind=='in' %}<span style="color:var(--brand-2)">▲</span>{% else %}<span style="color:var(--danger)">▼</span>{% endif %}</td>
+          <td><b>{{ t.title }}</b>{% if t.method %} <span class="muted" style="font-size:11px">· {{ t.method }}</span>{% endif %}</td>
+          <td class="muted" style="font-size:12px">{{ t.at }}</td>
+          <td style="text-align:right"><b style="color:{{ 'var(--brand-2)' if t.kind=='in' else 'var(--danger)' }}">{{ '+' if t.kind=='in' else '−' }}{{ "{:,.0f}".format(t.amount).replace(",", " ") }}</b></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Bu oyda tranzaksiya yo'q.</div>{% endif %}
+  </div>
+</div>
+
+<div class="pagehead" style="margin-top:22px"><div><p style="font-weight:600">Qo'shimcha: lidlar, retention, tendensiya</p></div></div>
 
 <!-- Asosiy ko'rsatkichlar -->
 <div class="stats" style="grid-template-columns:repeat(4,1fr)">

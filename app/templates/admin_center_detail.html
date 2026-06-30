@@ -33,12 +33,12 @@
             {% for n in [1,2,3,6,12] %}<option value="{{ n }}">{{ n }} oy</option>{% endfor %}
           </select>
         </div>
-        <div><label class="f">Summa (so'm)</label><input name="amount" type="number" placeholder="{{ (center.monthly_fee or 0)|int }} / oy"></div>
+        <div><label class="f">Summa (so'm)</label><input name="amount" type="number" placeholder="{{ center_fee|int }} / oy"></div>
         <div style="flex:2;min-width:150px"><label class="f">Izoh</label><input name="note" placeholder="masalan: naqd"></div>
         <div><button class="btn" type="submit">Qabul + uzaytirish</button></div>
       </div>
     </form>
-    <p class="muted" style="font-size:12px;margin-top:10px">Obuna joriy tugash sanasidan (yoki bugundan) {{ '' }}tanlangan oy qo'shiladi. Summa bo'sh bo'lsa — oylik narx × oy soni olinadi.</p>
+    <p class="muted" style="font-size:12px;margin-top:10px">Markaz oyligi (formula bo'yicha): <b>{{ "{:,.0f}".format(center_fee).replace(",", " ") }}</b> so'm. {% if branch_rows %}Filiallar alohida (pastda) to'lanadi.{% endif %} Summa bo'sh bo'lsa — shu narx × oy soni olinadi.</p>
   </div>
 
   <div class="formcard" style="margin:0">

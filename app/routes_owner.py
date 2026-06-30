@@ -20,8 +20,26 @@ from app.security import hash_password
 router = APIRouter(prefix="/owner")
 
 
+_KIND2METHOD = {"cash": "naqd", "card": "karta", "click": "click", "payme": "payme", "other": "o'tkazma"}
+
+
+def _acc_method(account_id: str) -> str:
+    """Hisob turidan to'lov usulini aniqlaydi (naqd/karta/...)."""
+    if not account_id:
+        return ""
+    try:
+        rows = supabase.table("accounts").select("kind").eq("id", account_id).limit(1).execute().data or []
+        if rows:
+            return _KIND2METHOD.get(rows[0].get("kind") or "cash", "naqd")
+    except Exception:
+        pass
+    return ""
+
+
 def _insert_payment(base: dict, group_id="", account_id="", method="") -> bool:
     """To'lovni qatlamli (graceful) qo'shadi — yangi ustunlar bo'lmasa ham ishlaydi."""
+    if account_id and not method:
+        method = _acc_method(account_id)   # hisob turidan usulni aniqlaymiz
     full = dict(base)
     if group_id:
         full["group_id"] = group_id
@@ -833,6 +851,8 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
     pf = data.pair_fees(cid)
     paid_total = data.paid_total_by_pair(cid)
     starts = data.enrollment_starts(cid)
+    coin_bal = coinmod.balances_for_center(cid)
+    coin_value = int(coinmod.rules(cid).get("value", 100) or 100)
 
     enr = data.center_enrollments(cid)
     if sel_group:
@@ -859,7 +879,8 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
         rows.append({"sid": sid, "gid": gid, "name": sname.get(sid, "—"),
                      "subject": gname.get(gid, "—"), "fee": fee, "alloc": alloc,
                      "month_left": max(0.0, fee - alloc) if fee > 0 else 0,
-                     "status": st, "debt": summ["debt"], "ahead": summ["ahead"]})
+                     "status": st, "debt": summ["debt"], "ahead": summ["ahead"],
+                     "coin": coin_bal.get(sid, 0), "coin_som": coin_bal.get(sid, 0) * coin_value})
 
     if sel_status == "paid":
         rows = [r for r in rows if r["status"] == "full"]
@@ -873,11 +894,14 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
     summary = {"paid": paid_cnt, "owing": owing_cnt,
                "collected": data.income_for_month(cid, sel_month, _branch_sids), "has_fee": has_fee}
 
-    # 💳 To'lov turlari: Naqd va Naqddan tashqari (qolganlari birlashtirilgan)
+    # 💳 To'lov turlari (TANLANGAN OY): Naqd va Naqddan tashqari
     pay_naqd = 0.0
     pay_noncash = 0.0
+    _ms, _me = data.month_bounds(sel_month)
     try:
-        prows = supabase.table("payments").select("method, amount, student_id").eq("center_id", cid).execute().data or []
+        prows = (supabase.table("payments").select("method, amount, student_id, paid_at")
+                 .eq("center_id", cid).eq("status", "paid")
+                 .gte("paid_at", _ms).lt("paid_at", _me).execute().data) or []
         for p in prows:
             if _branch_sids is not None and p.get("student_id") not in _branch_sids:
                 continue
@@ -885,7 +909,7 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
             val = float(p.get("amount") or 0)
             if m == "naqd":
                 pay_naqd += val
-            elif m:  # karta/click/payme/o'tkazma/coin — naqd emas (bo'sh/—larni hisobga olmaymiz)
+            elif m:
                 pay_noncash += val
     except Exception:
         pass
@@ -1014,21 +1038,37 @@ async def settings_hub(request: Request, user: dict = Depends(owner_required)):
 @router.get("/settings/general")
 async def settings_general(request: Request, user: dict = Depends(owner_required)):
     c = _center_settings(user["center_id"])
+    s = c.get("settings") or {}
     return templates.TemplateResponse("owner_settings_general.html", {
         "request": request, "user": user, "active": "settings",
-        "center": c, "settings": c.get("settings") or {}, "saved": request.query_params.get("saved"),
+        "center": c, "s": s, "settings": s, "saved": request.query_params.get("saved"),
     })
 
 
 @router.post("/settings/general")
 async def settings_general_save(
     request: Request, user: dict = Depends(owner_required),
-    name: str = Form(...), working_hours: str = Form(""),
+    name: str = Form(...),
+    phone: str = Form(""), phone2: str = Form(""), address: str = Form(""),
+    telegram: str = Form(""), instagram: str = Form(""), website: str = Form(""),
+    work_days: str = Form(""), work_start: str = Form(""), work_end: str = Form(""),
     logo: UploadFile = File(None),
 ):
     c = _center_settings(user["center_id"])
     s = dict(c.get("settings") or {})
-    s["working_hours"] = working_hours.strip()
+    s["phone"] = phone.strip()
+    s["phone2"] = phone2.strip()
+    s["address"] = address.strip()
+    s["telegram"] = telegram.strip()
+    s["instagram"] = instagram.strip()
+    s["website"] = website.strip()
+    s["work_days"] = work_days.strip()
+    s["work_start"] = work_start.strip()
+    s["work_end"] = work_end.strip()
+    # Eski "working_hours" matni — moslik uchun (boshqa joylar o'qisa buzilmasin)
+    if work_start.strip() and work_end.strip():
+        s["working_hours"] = f"{work_start.strip()} - {work_end.strip()}"
+    # DIQQAT: centers.phone — egasining LOGIN telefoni. Uni bu yerda o'zgartirmaymiz!
     # Nom va sozlamalarni avval saqlaymiz (logo bo'lmasa ham ishlaydi)
     supabase.table("centers").update({"name": name.strip(), "settings": s}).eq("id", user["center_id"]).execute()
 
@@ -1955,10 +1995,12 @@ async def settings_subscription(request: Request, user: dict = Depends(owner_req
     except Exception:
         history = []
     total = sum(float(h["amount"] or 0) for h in history)
+    # filialsiz markaz uchun oylik formula bo'yicha
+    center_fee = data.center_monthly_fee(cid, c) if not branch_rows else 0
     return templates.TemplateResponse("owner_settings_subscription.html", {
         "request": request, "user": user, "active": "settings",
         "center": c, "days": days, "history": history, "total": total,
-        "monthly_fee": float(c.get("monthly_fee") or 0), "accounts": data.accounts(cid),
+        "monthly_fee": center_fee, "accounts": data.accounts(cid),
         "branch_rows": branch_rows,
         "saved": request.query_params.get("saved"), "err": request.query_params.get("err"),
     })
@@ -2015,8 +2057,8 @@ async def settings_subscription_pay(request: Request, user: dict = Depends(owner
         supabase.table("branches").update({"sub_until": new_until.isoformat(), "suspended": False}).eq("id", branch_id).execute()
         return RedirectResponse("/owner/settings/subscription?saved=1", status_code=303)
 
-    # ---- Markaz obunasi (filialsiz markazlar uchun, eski usul) ----
-    fee = float(c.get("monthly_fee") or 0)
+    # ---- Markaz obunasi (filialsiz markazlar uchun) ----
+    fee = data.center_monthly_fee(cid, c)
     if fee <= 0:
         return RedirectResponse("/owner/settings/subscription?err=2", status_code=303)
     base = date.today()
@@ -2045,10 +2087,12 @@ async def settings_subscription_pay(request: Request, user: dict = Depends(owner
 #  XODIMLAR (administrator / qabulxona) — owner boshqaradi
 # ====================================================================
 @router.get("/settings/staff")
-async def settings_staff(request: Request, user: dict = Depends(owner_required)):
+async def settings_staff(request: Request, user: dict = Depends(staff_required)):
     cid = user["center_id"]
-    staff = (supabase.table("users").select("id, full_name, phone, role, branch_id")
+    bid = user.get("active_branch")
+    staff = (supabase.table("users").select("id, full_name, phone, role, branch_id, is_active")
              .eq("center_id", cid).eq("role", "reception").order("created_at", desc=True).execute().data) or []
+    staff = _bfilter(staff, bid)   # har filialning o'z xodimlari — aralashmaydi
     try:
         branches = supabase.table("branches").select("id, name").eq("center_id", cid).order("created_at").execute().data or []
     except Exception:
@@ -2056,9 +2100,19 @@ async def settings_staff(request: Request, user: dict = Depends(owner_required))
     bname = {b["id"]: b["name"] for b in branches}
     for s in staff:
         s["branch_name"] = bname.get(s.get("branch_id"))
+        s["is_active"] = s.get("is_active", True) is not False
+    # Direktor (markaz egasi) — jadval tepasida ko'rsatiladi (hammaga ko'rinadi)
+    try:
+        crow = supabase.table("centers").select("owner_name, phone").eq("id", cid).limit(1).execute().data or []
+    except Exception:
+        crow = []
+    director = {
+        "name": (crow[0].get("owner_name") if crow else None) or user.get("center_name") or "Direktor",
+        "phone": (crow[0].get("phone") if crow else None),
+    }
     return templates.TemplateResponse("owner_settings_staff.html", {
-        "request": request, "user": user, "active": "settings", "staff": staff,
-        "branches": branches,
+        "request": request, "user": user, "active": "staff", "staff": staff,
+        "branches": branches, "director": director,
         "saved": request.query_params.get("saved"), "dup": request.query_params.get("dup"),
     })
 
@@ -2565,15 +2619,80 @@ async def holidays_delete(hid: str, request: Request, user: dict = Depends(staff
 async def analytics_page(request: Request, user: dict = Depends(staff_required)):
     cid = user["center_id"]
     now_ym = data.cur_ym()
-    _abid = user.get("active_branch")
-    _bst, _bgr, _bte = data.branch_members(cid, _abid)
+    sel_month = request.query_params.get("month") or now_ym
+    months = [(ym, _ym_label(ym)) for ym in (data.add_months(now_ym, k) for k in range(-11, 1))]
 
-    # --- Lidlar voronkasi (Trial -> Aktiv) ---
+    # ===== GLOBAL moliyaviy ko'rsatkichlar (tanlangan oy, BARCHA filiallar) =====
+    income = data.income_for_month(cid, sel_month)
+    expenses = data.expenses_for_month(cid, sel_month)
+    payouts = sum(data.payouts_for_month(cid, sel_month).values())
+    refund = 0.0
+    profit = income - expenses - payouts
+    fin = {"income": income, "refund": refund, "payouts": payouts,
+           "expenses": expenses, "profit": profit}
+    _fmax = max(1.0, income, expenses, payouts)
+    fin_bars = [
+        {"label": "Tushum", "val": income, "pct": round(income * 100 / _fmax, 1), "color": "#2f6df6"},
+        {"label": "O'qit. ulush", "val": payouts, "pct": round(payouts * 100 / _fmax, 1), "color": "#8b5cf6"},
+        {"label": "Xarajat", "val": expenses, "pct": round(expenses * 100 / _fmax, 1), "color": "#ef4444"},
+    ]
+
+    # ===== Filiallar foydasi (tanlangan oy) =====
+    branch_profit = []
     try:
-        leads = supabase.table("leads").select("status, branch_id").eq("center_id", cid).execute().data or []
+        brs = supabase.table("branches").select("id, name").eq("center_id", cid).order("created_at").execute().data or []
+    except Exception:
+        brs = []
+    for b in brs:
+        try:
+            bst = {s["id"] for s in supabase.table("students").select("id").eq("center_id", cid).eq("branch_id", b["id"]).execute().data or []}
+            bte = {t["id"] for t in supabase.table("teachers").select("id").eq("center_id", cid).eq("branch_id", b["id"]).execute().data or []}
+        except Exception:
+            bst, bte = set(), set()
+        inc = data.income_for_month(cid, sel_month, bst)
+        exp = data.expenses_for_month(cid, sel_month, b["id"])
+        pay = sum(data.payouts_for_month(cid, sel_month, bte).values())
+        branch_profit.append({"name": b["name"], "income": inc,
+                              "expense": exp + pay, "profit": inc - exp - pay})
+    branch_profit.sort(key=lambda x: -x["profit"])
+    _bpmax = max([1.0] + [abs(b["profit"]) for b in branch_profit])
+    for b in branch_profit:
+        b["bar"] = round(max(0, b["profit"]) * 100 / _bpmax, 1)
+
+    # ===== So'nggi tranzaksiyalar (tanlangan oy) =====
+    ms, me = data.month_bounds(sel_month)
+    recent_tx = []
+    try:
+        snm = {s["id"]: s["full_name"] for s in supabase.table("students").select("id, full_name").eq("center_id", cid).execute().data or []}
+    except Exception:
+        snm = {}
+    try:
+        for p in (supabase.table("payments").select("student_id, amount, paid_at, method")
+                  .eq("center_id", cid).eq("status", "paid").gte("paid_at", ms).lt("paid_at", me)
+                  .order("paid_at", desc=True).limit(15).execute().data or []):
+            recent_tx.append({"kind": "in", "title": snm.get(p.get("student_id"), "To'lov"),
+                              "amount": float(p.get("amount") or 0),
+                              "at": (p.get("paid_at") or "")[:16].replace("T", " "),
+                              "method": p.get("method") or ""})
+    except Exception:
+        pass
+    try:
+        for e in (supabase.table("expenses").select("category, amount, spent_at")
+                  .eq("center_id", cid).gte("spent_at", ms).lt("spent_at", me)
+                  .order("spent_at", desc=True).limit(10).execute().data or []):
+            recent_tx.append({"kind": "out", "title": e.get("category") or "Xarajat",
+                              "amount": float(e.get("amount") or 0),
+                              "at": (e.get("spent_at") or "")[:16].replace("T", " "), "method": ""})
+    except Exception:
+        pass
+    recent_tx.sort(key=lambda x: x["at"], reverse=True)
+    recent_tx = recent_tx[:18]
+
+    # ===== Lidlar voronkasi (GLOBAL) =====
+    try:
+        leads = supabase.table("leads").select("status").eq("center_id", cid).execute().data or []
     except Exception:
         leads = []
-    leads = _bfilter(leads, _abid)
     lc = {}
     for l in leads:
         st = l.get("status") or "new"
@@ -2581,63 +2700,53 @@ async def analytics_page(request: Request, user: dict = Depends(staff_required))
     total_leads = len(leads)
     trial_n = lc.get("trial", 0)
     enrolled_n = lc.get("enrolled", 0)
-    lost_n = lc.get("lost", 0)
     funnel = {
         "total": total_leads, "new": lc.get("new", 0), "contacted": lc.get("contacted", 0),
-        "trial": trial_n, "enrolled": enrolled_n, "lost": lost_n,
+        "trial": trial_n, "enrolled": enrolled_n, "lost": lc.get("lost", 0),
         "lead_conv": round(enrolled_n * 100 / total_leads) if total_leads else 0,
         "trial_conv": round(enrolled_n * 100 / trial_n) if trial_n else 0,
     }
 
-    # --- O'quvchilar: aktiv vs ketgan (churn / retention) ---
-    students = supabase.table("students").select("id, active, branch_id").eq("center_id", cid).execute().data or []
-    students = _bfilter(students, _abid)
+    # ===== O'quvchilar retention/churn (GLOBAL) =====
+    students = supabase.table("students").select("id, active").eq("center_id", cid).execute().data or []
     active_n = sum(1 for s in students if s.get("active", True) is not False)
     churned_n = sum(1 for s in students if s.get("active", True) is False)
     total_students = len(students)
     retention = round(active_n * 100 / total_students) if total_students else 0
     churn = round(churned_n * 100 / total_students) if total_students else 0
 
-    # --- Oylik daromad / foyda tendensiyasi (so'nggi 6 oy) ---
+    # ===== 6 oylik tendensiya (GLOBAL) =====
     trend = []
     max_income = 1
     for k in range(-5, 1):
         ym = data.add_months(now_ym, k)
-        inc = data.income_for_month(cid, ym, _bst)
-        exp = data.expenses_for_month(cid, ym, _abid)
-        pay = sum(data.payouts_for_month(cid, ym, _bte).values())
-        profit = inc - exp - pay
+        inc = data.income_for_month(cid, ym)
+        exp = data.expenses_for_month(cid, ym)
+        pay = sum(data.payouts_for_month(cid, ym).values())
         trend.append({"ym": ym, "label": _ym_label(ym), "income": inc,
-                      "expense": exp + pay, "profit": profit})
+                      "expense": exp + pay, "profit": inc - exp - pay})
         max_income = max(max_income, inc, exp + pay)
     for t in trend:
         t["bar_income"] = round(t["income"] * 100 / max_income, 1)
         t["bar_expense"] = round(t["expense"] * 100 / max_income, 1)
 
-    # --- Davomat darajasi (shu filial guruhlari) ---
+    # ===== Davomat (GLOBAL) =====
     try:
-        att = supabase.table("attendance").select("status, group_id").eq("center_id", cid).execute().data or []
+        att = supabase.table("attendance").select("status").eq("center_id", cid).execute().data or []
     except Exception:
         att = []
-    if _bgr is not None:
-        att = [a for a in att if a.get("group_id") in _bgr]
     present = sum(1 for a in att if a.get("status") in ("present", "late"))
     att_rate = round(present * 100 / len(att)) if att else None
 
-    # --- Qarzdorlik (shu filial o'quvchilari) ---
+    # ===== Qarzdorlik (GLOBAL) =====
     debt_map = data.center_debtors(cid)
-    if _bst is not None:
-        debt_map = {sid: v for sid, v in debt_map.items() if sid in _bst}
     debtors_n = sum(1 for v in debt_map.values() if v > 0)
     total_debt = sum(v for v in debt_map.values() if v > 0)
 
-    # --- Coin (shu filial) ---
-    _bset = {s["id"] for s in students}
+    # ===== Coin (GLOBAL) =====
     c_earned = c_spent = 0
     try:
-        for tx in (supabase.table("coin_tx").select("student_id, amount").eq("center_id", cid).execute().data or []):
-            if _abid and tx.get("student_id") not in _bset:
-                continue
+        for tx in (supabase.table("coin_tx").select("amount").eq("center_id", cid).execute().data or []):
             a = int(tx.get("amount") or 0)
             c_earned += a if a >= 0 else 0
             c_spent += -a if a < 0 else 0
@@ -2648,11 +2757,13 @@ async def analytics_page(request: Request, user: dict = Depends(staff_required))
     cur = trend[-1] if trend else {"income": 0, "expense": 0, "profit": 0}
     return templates.TemplateResponse("owner_analytics.html", {
         "request": request, "user": user, "active": "analytics",
+        "sel_month": sel_month, "months": months, "fin": fin, "fin_bars": fin_bars,
+        "branch_profit": branch_profit, "recent_tx": recent_tx,
         "funnel": funnel, "active_n": active_n, "churned_n": churned_n,
         "total_students": total_students, "retention": retention, "churn": churn,
         "trend": trend, "att_rate": att_rate, "debtors_n": debtors_n,
         "total_debt": total_debt, "coin_stats": coin_stats, "cur": cur,
-        "month_label": _ym_label(now_ym),
+        "month_label": _ym_label(sel_month),
     })
 
 

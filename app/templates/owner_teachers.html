@@ -18,7 +18,6 @@
       {% if user.branches %}
       <div><label class="f">🏢 Filial</label>
         <select name="branch_id">
-          <option value="">Umumiy</option>
           {% for b in user.branches %}<option value="{{ b.id }}" {{ 'selected' if user.active_branch==b.id }}>{{ b.name }}</option>{% endfor %}
         </select>
       </div>

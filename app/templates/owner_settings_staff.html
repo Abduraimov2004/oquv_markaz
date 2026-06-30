@@ -1,17 +1,24 @@
 {% extends "base.html" %}
 {% block title %}Xodimlar{% endblock %}
-{% block heading %}Xodimlar (administrator){% endblock %}
+{% block heading %}Xodimlar{% endblock %}
 {% block content %}
-
-<div class="pagehead">
-  <div><p>Administrator (qabulxona) qo'shing — u o'quvchi, lid, to'lov va davomat bilan ishlay oladi, lekin moliyaviy/sozlama bo'limlariga kira olmaydi.</p></div>
-  <a href="/owner/settings" class="muted" style="font-size:13px">← Sozlamalar</a>
-</div>
 
 {% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
 {% if dup %}<div class="err">⚠ Bu telefon allaqachon ro'yxatda.</div>{% endif %}
 
-<div class="formcard">
+<div class="xhead">
+  <div class="xhead-ic">👥</div>
+  <div style="flex:1">
+    <h2 style="font-family:'Sora';font-size:20px;font-weight:700;line-height:1.1">Xodimlar bo'limi</h2>
+    <p class="muted" style="font-size:13.5px;margin-top:3px">Direktor va markaz administratorlari{% if user.active_branch_name %} · 🏢 {{ user.active_branch_name }}{% endif %}</p>
+  </div>
+  {% if user.is_owner %}
+  <button class="btn" type="button" onclick="document.getElementById('addStaff').classList.toggle('open')">+ Administrator</button>
+  {% endif %}
+</div>
+
+{% if user.is_owner %}
+<div class="formcard addstaff {{ 'open' if dup }}" id="addStaff">
   <h2>Yangi administrator</h2>
   <form method="post" action="/owner/settings/staff/add">
     <div class="frow">
@@ -22,54 +29,109 @@
       <div><label class="f">🏢 Filial</label>
         <select name="branch_id" required>
           <option value="">— filial tanlang —</option>
-          {% for b in branches %}<option value="{{ b.id }}">{{ b.name }}</option>{% endfor %}
+          {% for b in branches %}<option value="{{ b.id }}" {{ 'selected' if user.active_branch==b.id }}>{{ b.name }}</option>{% endfor %}
         </select>
       </div>
       {% endif %}
       <div><button class="btn" type="submit">+ Qo'shish</button></div>
     </div>
+    <p class="muted" style="font-size:12px;margin-top:8px">Administrator o'quvchi, lid, to'lov va davomat bilan ishlay oladi (siz bergan huquqlar bo'yicha). Moliyaviy/sozlama bo'limlariga kira olmaydi.</p>
   </form>
 </div>
+{% endif %}
 
 <div class="card">
-  <div class="hd"><h2>Administratorlar ({{ staff|length }})</h2></div>
+  <div class="hd"><h2>Barcha xodimlar ({{ staff|length + 1 }})</h2></div>
   <div class="bd">
-    {% if staff %}
     <table>
-      <thead><tr><th>F.I.O.</th><th>Telefon</th>{% if branches %}<th>🏢 Filial</th>{% endif %}<th>Parol yangilash</th><th></th></tr></thead>
+      <thead><tr>
+        <th>Ism</th>
+        {% if user.is_owner %}<th>Telefon</th>{% endif %}
+        <th>Lavozim</th>
+        {% if branches %}<th>🏢 Filial</th>{% endif %}
+        <th>Holat</th>
+        {% if user.is_owner %}<th style="text-align:right">Amallar</th>{% endif %}
+      </tr></thead>
       <tbody>
+        <!-- DIREKTOR (markaz egasi) -->
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="xav" style="background:#fbf1dd;color:#9a6b14">{{ (director.name or 'D')[0]|upper }}</span>
+              <b>{{ director.name }}</b>
+            </div>
+          </td>
+          {% if user.is_owner %}<td class="muted">{{ director.phone or "—" }}</td>{% endif %}
+          <td><span class="role-pill director">🛡 Direktor</span></td>
+          {% if branches %}<td class="muted">barcha</td>{% endif %}
+          <td><span class="pill ok">Active</span></td>
+          {% if user.is_owner %}<td style="text-align:right" class="muted">—</td>{% endif %}
+        </tr>
+        <!-- ADMINISTRATORLAR -->
         {% for x in staff %}
         <tr>
-          <td><b>{{ x.full_name or "—" }}</b></td>
-          <td class="muted">{{ x.phone }}</td>
+          <td>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span class="xav">{{ (x.full_name or '?')[0]|upper }}</span>
+              <b>{{ x.full_name or "—" }}</b>
+            </div>
+          </td>
+          {% if user.is_owner %}<td class="muted">{{ x.phone }}</td>{% endif %}
+          <td><span class="role-pill admin">👤 Administrator</span></td>
           {% if branches %}
           <td>
-            <form method="post" action="/owner/settings/staff/{{ x.id }}/branch" style="display:flex;gap:4px">
+            {% if user.is_owner %}
+            <form method="post" action="/owner/settings/staff/{{ x.id }}/branch" style="margin:0">
               <select name="branch_id" onchange="this.form.submit()" style="width:auto;min-width:120px;padding:6px 8px;font-size:13px">
                 <option value="">— belgilanmagan —</option>
                 {% for b in branches %}<option value="{{ b.id }}" {{ 'selected' if x.branch_id==b.id }}>{{ b.name }}</option>{% endfor %}
               </select>
             </form>
+            {% else %}<span class="muted">{{ x.branch_name or "—" }}</span>{% endif %}
           </td>
           {% endif %}
-          <td>
-            <form method="post" action="/owner/settings/staff/{{ x.id }}/password" style="display:flex;gap:6px">
-              <input name="password" type="text" placeholder="yangi parol" style="width:140px;padding:6px 8px;font-size:13px" required>
-              <button class="btn" style="padding:7px 12px;font-size:12.5px">Saqlash</button>
+          <td>{% if x.is_active %}<span class="pill ok">Active</span>{% else %}<span class="pill bad">Nofaol</span>{% endif %}</td>
+          {% if user.is_owner %}
+          <td style="text-align:right;white-space:nowrap">
+            <button type="button" class="iconbtn" title="Parol yangilash" onclick="document.getElementById('pw{{ x.id }}').classList.toggle('open')">🔑</button>
+            <a href="/owner/settings/staff/{{ x.id }}/perms" class="iconbtn" title="Huquqlar">🛠</a>
+            <form method="post" action="/owner/settings/staff/{{ x.id }}/delete" style="margin:0;display:inline" data-confirm="{{ x.full_name or 'Xodim' }} o'chirilsinmi?">
+              <button class="iconbtn danger" title="O'chirish">🗑</button>
             </form>
+            <div class="pwrow" id="pw{{ x.id }}">
+              <form method="post" action="/owner/settings/staff/{{ x.id }}/password" style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+                <input name="password" type="text" placeholder="yangi parol" style="width:150px;padding:6px 8px;font-size:13px" required>
+                <button class="btn" style="padding:7px 12px;font-size:12.5px">Saqlash</button>
+              </form>
+            </div>
           </td>
-          <td style="text-align:right">
-            <a href="/owner/settings/staff/{{ x.id }}/perms" class="btn" style="padding:6px 10px;font-size:12px;background:#5b7a86;margin-right:4px">Huquqlar</a>
-            <form method="post" action="/owner/settings/staff/{{ x.id }}/delete" style="margin:0;display:inline" onsubmit="return confirm('O\'chirilsinmi?')">
-              <button class="btn" style="padding:6px 10px;font-size:12px;background:#c2563f">O'chirish</button>
-            </form>
-          </td>
+          {% endif %}
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    {% else %}<div class="empty">Hali administrator yo'q.</div>{% endif %}
   </div>
 </div>
+
+{% if not user.is_owner %}
+<p class="muted" style="font-size:12px;margin-top:12px">ℹ️ Xodimlarni qo'shish va tahrirlash faqat markaz egasida (direktorda) mavjud.</p>
+{% endif %}
+
+<style>
+  .xhead{display:flex;align-items:center;gap:14px;margin-bottom:18px}
+  .xhead-ic{width:50px;height:50px;border-radius:13px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:24px;flex-shrink:0}
+  .addstaff{display:none}
+  .addstaff.open{display:block}
+  .xav{width:34px;height:34px;border-radius:50%;background:#e8f2ef;color:var(--brand-2);display:grid;place-items:center;font-family:'Sora';font-weight:700;font-size:13px;flex-shrink:0}
+  .role-pill{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:4px 11px;border-radius:20px}
+  .role-pill.director{background:#fbf1dd;color:#9a6b14}
+  .role-pill.admin{background:#e7eefb;color:#3155b5}
+  .iconbtn{display:inline-grid;place-items:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--ink);cursor:pointer;font-size:14px;margin-left:4px;vertical-align:middle;text-decoration:none}
+  .iconbtn:hover{background:var(--soft)}
+  .iconbtn.danger:hover{background:#f8e6e1;border-color:#e2b6ab}
+  .pwrow{display:none}
+  .pwrow.open{display:block}
+</style>
 
 {% endblock %}

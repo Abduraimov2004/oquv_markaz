@@ -221,6 +221,7 @@
           {% if user.is_owner or 'risk' in perms %}<a href="/owner/risk" class="{{ 'active' if active=='risk' }}"><span class="ic">⚠</span> Ketish xavfi</a>{% endif %}
           {% if user.is_owner or 'teachers' in perms %}<a href="/owner/teachers" class="{{ 'active' if active=='teachers' }}"><span class="ic">✓</span> O'qituvchilar</a>{% endif %}
           {% if user.is_owner or 'branches' in perms %}<a href="/owner/branches" class="{{ 'active' if active=='branches' }}"><span class="ic">🏢</span> Filiallar</a>{% endif %}
+          <a href="/owner/settings/staff" class="{{ 'active' if active=='staff' }}"><span class="ic">👥</span> Xodimlar</a>
           <div class="lbl">CRM & jadval</div>
           {% if user.is_owner or 'leads' in perms %}<a href="/owner/leads" class="{{ 'active' if active=='leads' }}"><span class="ic">◎</span> Lidlar (CRM)</a>{% endif %}
           {% if user.is_owner or 'schedule' in perms %}<a href="/owner/schedule" class="{{ 'active' if active=='schedule' }}"><span class="ic">▥</span> Dars jadvali</a>{% endif %}
@@ -301,6 +302,120 @@
       } catch (e) {}
     });
   })();
+</script>
+
+<!-- ===== Chiroyli tasdiqlash oynasi (xunuk native confirm() o'rniga) ===== -->
+<div id="cfm-overlay" class="cfm-overlay" aria-hidden="true">
+  <div class="cfm-box" role="dialog" aria-modal="true">
+    <div class="cfm-ic" id="cfm-ic">⚠️</div>
+    <h3 id="cfm-title">Tasdiqlang</h3>
+    <p id="cfm-msg"></p>
+    <div class="cfm-actions">
+      <button type="button" class="cfm-btn cfm-cancel" id="cfm-cancel">Bekor qilish</button>
+      <button type="button" class="cfm-btn cfm-ok" id="cfm-ok">Ha, davom etish</button>
+    </div>
+  </div>
+</div>
+<style>
+  .cfm-overlay{position:fixed;inset:0;background:rgba(8,20,17,.55);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:1000;padding:20px}
+  .cfm-overlay.show{display:flex;animation:cfmFade .15s ease}
+  @keyframes cfmFade{from{opacity:0}to{opacity:1}}
+  .cfm-box{background:var(--panel);border:1px solid var(--line);border-radius:16px;max-width:380px;width:100%;
+    padding:26px 24px 20px;text-align:center;box-shadow:0 24px 60px rgba(0,0,0,.3);
+    animation:cfmPop .18s cubic-bezier(.2,.9,.3,1.2)}
+  @keyframes cfmPop{from{transform:scale(.92);opacity:0}to{transform:scale(1);opacity:1}}
+  .cfm-ic{width:54px;height:54px;border-radius:50%;background:#fbf1dd;display:grid;place-items:center;
+    font-size:26px;margin:0 auto 14px}
+  .cfm-box.danger .cfm-ic{background:#f8e6e1}
+  .cfm-box h3{font-family:'Sora';font-size:18px;font-weight:600;margin-bottom:8px;color:var(--ink)}
+  .cfm-box p{color:var(--muted);font-size:14px;line-height:1.55;margin-bottom:20px}
+  .cfm-actions{display:flex;gap:10px}
+  .cfm-btn{flex:1;padding:12px;border-radius:11px;font-family:'Sora';font-weight:600;font-size:14px;
+    cursor:pointer;border:1px solid var(--line);transition:.15s}
+  .cfm-cancel{background:var(--soft);color:var(--ink)}
+  .cfm-cancel:hover{background:var(--line)}
+  .cfm-ok{background:var(--brand);color:#fff;border-color:var(--brand)}
+  .cfm-ok:hover{background:var(--brand-2)}
+  .cfm-box.danger .cfm-ok{background:var(--danger);border-color:var(--danger)}
+  .cfm-box.danger .cfm-ok:hover{filter:brightness(.92)}
+</style>
+<script>
+(function(){
+  var overlay=document.getElementById('cfm-overlay');
+  var box=overlay.querySelector('.cfm-box');
+  var msgEl=document.getElementById('cfm-msg');
+  var icEl=document.getElementById('cfm-ic');
+  var okBtn=document.getElementById('cfm-ok');
+  var cancelBtn=document.getElementById('cfm-cancel');
+  var pending=null;
+
+  function open(msg,danger,cb){
+    msgEl.textContent=msg;
+    box.classList.toggle('danger',!!danger);
+    icEl.textContent=danger?'🗑️':'⚠️';
+    pending=cb;
+    overlay.classList.add('show');
+    setTimeout(function(){okBtn.focus();},30);
+  }
+  function close(){ overlay.classList.remove('show'); pending=null; }
+
+  okBtn.addEventListener('click',function(){ var cb=pending; close(); if(cb) cb(); });
+  cancelBtn.addEventListener('click',close);
+  overlay.addEventListener('click',function(e){ if(e.target===overlay) close(); });
+  document.addEventListener('keydown',function(e){ if(e.key==='Escape'&&overlay.classList.contains('show')) close(); });
+
+  window.askConfirm=open; // kelajakda qo'lda chaqirish uchun: askConfirm('matn', true, cb)
+
+  // --- Eski native confirm()'larni avtomatik chiroyli modalga aylantirish ---
+  var RE=/confirm\(\s*(["'])((?:\\.|(?!\1)[\s\S])*)\1\s*\)/;
+  function extract(str){
+    if(!str) return null;
+    var m=str.match(RE);
+    return m? m[2].replace(/\\(['"\\])/g,'$1') : null;
+  }
+  function isDanger(msg){ return /o['’]?chir|diqqat|butunlay|nofaol/i.test(msg); }
+
+  document.addEventListener('DOMContentLoaded',function(){
+    document.querySelectorAll('form[onsubmit]').forEach(function(f){
+      var msg=extract(f.getAttribute('onsubmit'));
+      if(msg){ f.removeAttribute('onsubmit'); f.setAttribute('data-confirm',msg); }
+    });
+    document.querySelectorAll('[onclick]').forEach(function(el){
+      var msg=extract(el.getAttribute('onclick'));
+      if(!msg) return;
+      el.removeAttribute('onclick');
+      var f=el.closest('form');
+      if(f){ f.setAttribute('data-confirm',msg); }
+      else { el.setAttribute('data-confirm',msg); el.setAttribute('data-confirm-el','1'); }
+    });
+  });
+
+  document.addEventListener('submit',function(e){
+    var f=e.target;
+    var msg=f.getAttribute&&f.getAttribute('data-confirm');
+    if(msg && !f.hasAttribute('data-confirmed')){
+      e.preventDefault();
+      var submitter=e.submitter;
+      open(msg,isDanger(msg),function(){
+        f.setAttribute('data-confirmed','1');
+        if(f.requestSubmit){ f.requestSubmit(submitter||undefined); } else { f.submit(); }
+      });
+    }
+  },true);
+
+  document.addEventListener('click',function(e){
+    var el=e.target.closest('[data-confirm-el]');
+    if(el){
+      e.preventDefault();
+      var msg=el.getAttribute('data-confirm');
+      open(msg,isDanger(msg),function(){
+        if(el.tagName==='A'&&el.href){ location.href=el.href; }
+        else { el.removeAttribute('data-confirm-el'); el.click(); }
+      });
+    }
+  },true);
+})();
 </script>
 </body>
 </html>

@@ -220,6 +220,19 @@ def branch_monthly_price(center, n_students, n_teachers) -> float:
     return base + ps * (n_students or 0) + pt * (n_teachers or 0)
 
 
+def center_monthly_fee(cid: str, center: dict) -> float:
+    """Filialsiz markaz uchun oylik = formula(markazning umumiy o'quvchi/o'qituvchisi)."""
+    try:
+        ns = len(supabase.table("students").select("id").eq("center_id", cid).execute().data or [])
+    except Exception:
+        ns = 0
+    try:
+        nt = len(supabase.table("teachers").select("id").eq("center_id", cid).execute().data or [])
+    except Exception:
+        nt = 0
+    return branch_monthly_price(center, ns, nt)
+
+
 def branch_billing_rows(cid: str, center: dict) -> list:
     """Har filial uchun billing ma'lumoti (narx, obuna holati)."""
     from datetime import date as _d

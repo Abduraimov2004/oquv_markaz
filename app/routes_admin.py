@@ -160,11 +160,13 @@ async def center_detail(cid: str, request: Request, user: dict = Depends(admin_r
     total_paid = sum(float(h["amount"] or 0) for h in history)
 
     branch_rows = data.branch_billing_rows(cid, center)
+    center_fee = data.center_monthly_fee(cid, center)
 
     return templates.TemplateResponse("admin_center_detail.html", {
         "request": request, "user": user, "active": "centers",
         "center": center, "owner": owner, "counts": counts,
         "history": history, "total_paid": total_paid, "branch_rows": branch_rows,
+        "center_fee": center_fee,
         "saved": request.query_params.get("saved"), "err": request.query_params.get("err"),
     })
 
@@ -216,7 +218,7 @@ async def center_pay(cid: str, request: Request, user: dict = Depends(admin_requ
         except Exception:
             pass
     new_until = _add_months_date(base, n)
-    fee = float(c.get("monthly_fee") or 0)
+    fee = data.center_monthly_fee(cid, c)
     try:
         amt = float(str(amount).replace(" ", "").replace(",", "")) if amount.strip() else fee * n
     except ValueError:
