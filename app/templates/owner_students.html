@@ -17,6 +17,14 @@
           {% for g in groups %}<option value="{{ g.id }}">{{ g.name }}</option>{% endfor %}
         </select>
       </div>
+      {% if user.branches %}
+      <div><label class="f">🏢 Filial</label>
+        <select name="branch_id">
+          <option value="">Umumiy (filialsiz)</option>
+          {% for b in user.branches %}<option value="{{ b.id }}" {{ 'selected' if user.active_branch==b.id }}>{{ b.name }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div><button class="btn" type="submit">+ Qo'shish</button></div>
     </div>
     <p class="muted" style="font-size:12px;margin-top:10px">

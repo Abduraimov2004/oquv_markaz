@@ -24,10 +24,11 @@
   </form>
 </div>
 
-<div class="stats" style="grid-template-columns:repeat(3,1fr)">
+<div class="stats" style="grid-template-columns:repeat(4,1fr)">
   <div class="stat"><div class="top"><span class="tag">Oylik (jami)</span><span class="ic">₸</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_fee).replace(",", " ") }}</div><div class="sub">barcha fanlar / oy</div></div>
   <div class="stat green"><div class="top"><span class="tag">Jami to'langan</span><span class="ic">✓</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_paid).replace(",", " ") }}</div><div class="sub">umrida</div></div>
   <div class="stat red"><div class="top"><span class="tag">Umumiy qarz</span><span class="ic">!</span></div><div class="num" style="font-size:21px">{{ "{:,.0f}".format(total_debt).replace(",", " ") }}</div><div class="sub">{{ now_label }} holatiga</div></div>
+  <div class="stat"><div class="top"><span class="tag">🪙 Coin balansi</span><span class="ic">🪙</span></div><div class="num" style="font-size:21px">{{ coin_balance }}</div><div class="sub">≈ {{ '{:,}'.format(coin_balance * coin_value).replace(',', ' ') }} so'm chegirma</div></div>
 </div>
 
 {% for r in rows %}

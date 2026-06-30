@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Xarajat so'rovlari{% endblock %}
+{% block heading %}🧾 Xarajat so'rovlari{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Administrator xarajat so'raydi — markaz egasi tasdiqlaydi yoki rad etadi.</p></div></div>
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Bajarildi</div>{% endif %}
+{% if request.query_params.get('err')=='nomoney' %}<div class="err">Tanlangan kassada mablag' yetarli emas.</div>{% endif %}
+
+<div class="formcard">
+  <h2 style="margin-bottom:10px">Yangi so'rov yuborish</h2>
+  <form method="post" action="/owner/expense-requests/submit">
+    <div class="frow">
+      <div><label class="f">Summa (so'm)</label><input name="amount" type="number" placeholder="150000" required></div>
+      <div style="flex:2"><label class="f">Sabab</label><input name="reason" placeholder="masalan: ofis suvi, marker, ta'mirlash"></div>
+      <div style="display:flex;align-items:end"><button class="btn" type="submit">So'rov yuborish</button></div>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>Kutilayotgan so'rovlar ({{ pending|length }})</h2></div>
+  <div class="bd">
+    {% if pending %}
+    <table>
+      <thead><tr><th>So'rovchi</th><th>Sabab</th><th style="text-align:right">Summa</th><th>Sana</th><th style="text-align:right">Amal</th></tr></thead>
+      <tbody>
+        {% for x in pending %}
+        <tr>
+          <td><b>{{ x.requested_name or '—' }}</b></td>
+          <td class="muted">{{ x.reason or '—' }}</td>
+          <td style="text-align:right"><b>{{ '{:,}'.format(x.amount|int).replace(',', ' ') }}</b> so'm</td>
+          <td class="muted">{{ (x.created_at or '')[:10] }}</td>
+          <td style="text-align:right">
+            {% if is_owner %}
+            <form method="post" action="/owner/expense-requests/{{ x.id }}/decide" style="display:inline-flex;gap:6px">
+              <input type="hidden" name="decision" value="approve">
+              <button class="btn" style="background:var(--good);padding:6px 12px;font-size:12.5px" onclick="return confirm('Tasdiqlansinmi? Kassadan xarajat sifatida yoziladi.')">✓ Tasdiqlash</button>
+            </form>
+            <form method="post" action="/owner/expense-requests/{{ x.id }}/decide" style="display:inline">
+              <input type="hidden" name="decision" value="reject">
+              <button class="btn" style="background:var(--danger);padding:6px 12px;font-size:12.5px">✕ Rad</button>
+            </form>
+            {% else %}<span class="pill warn">kutilmoqda</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Kutilayotgan so'rov yo'q.</div>{% endif %}
+  </div>
+</div>
+
+<div class="card" style="margin-top:18px">
+  <div class="hd"><h2>Tarix</h2></div>
+  <div class="bd">
+    {% if done %}
+    <table>
+      <thead><tr><th>So'rovchi</th><th>Sabab</th><th style="text-align:right">Summa</th><th>Holat</th><th>Sana</th></tr></thead>
+      <tbody>
+        {% for x in done %}
+        <tr>
+          <td><b>{{ x.requested_name or '—' }}</b></td>
+          <td class="muted">{{ x.reason or '—' }}</td>
+          <td style="text-align:right">{{ '{:,}'.format(x.amount|int).replace(',', ' ') }} so'm</td>
+          <td>{% if x.status=='approved' %}<span class="pill ok">tasdiqlandi</span>{% else %}<span class="pill bad">rad etildi</span>{% endif %}</td>
+          <td class="muted">{{ (x.decided_at or x.created_at or '')[:10] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Tarix bo'sh.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

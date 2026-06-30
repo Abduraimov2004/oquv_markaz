@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Bayram kunlari{% endblock %}
+{% block heading %}📅 Bayram kunlari{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p>Dam olish va bayram kunlari. Jadval bu kunlarni hisobga oladi (banner ko'rsatadi).</p></div>
+  <form method="get" action="/owner/holidays" style="margin:0">
+    <select name="year" onchange="this.form.submit()" style="width:auto">
+      {% for y in years %}<option value="{{ y }}" {{ 'selected' if y==year }}>{{ y }}-yil</option>{% endfor %}
+    </select>
+  </form>
+</div>
+
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+
+<div class="formcard">
+  <h2 style="margin-bottom:10px">Bayram qo'shish</h2>
+  <form method="post" action="/owner/holidays/add">
+    <div class="frow">
+      <div><label class="f">Sana</label><input name="hdate" type="date" required></div>
+      <div style="flex:2"><label class="f">Nomi</label><input name="name" placeholder="masalan: Navro'z, Mustaqillik kuni" required></div>
+      <div style="display:flex;align-items:end"><button class="btn" type="submit">+ Qo'shish</button></div>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>{{ year }}-yil bayramlari ({{ items|length }})</h2></div>
+  <div class="bd">
+    {% if items %}
+    <table>
+      <thead><tr><th>Sana</th><th>Nomi</th><th></th></tr></thead>
+      <tbody>
+        {% for h in items %}
+        <tr>
+          <td><b>{{ h.date }}</b></td>
+          <td>{{ h.name }}</td>
+          <td style="text-align:right">
+            <form method="post" action="/owner/holidays/{{ h.id }}/delete" style="margin:0" onsubmit="return confirm('O\'chirilsinmi?')">
+              <button class="btn" style="background:var(--danger);padding:6px 12px;font-size:12.5px">O'chirish</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">{{ year }}-yil uchun bayram kuni qo'shilmagan.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

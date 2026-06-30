@@ -196,9 +196,18 @@ async def parent_cabinet(token: str, request: Request):
                "date": (g.get("date") or "")[:10],
                "subject": (groups.get(g.get("group_id"), {}) or {}).get("name", "")} for g in grows]
 
+    # 🪙 Coin balansi
+    try:
+        from app import coins as _coins
+        coin_balance = _coins.balance(sid)
+        coin_value = _coins.rules(cid).get("value", 100)
+    except Exception:
+        coin_balance, coin_value = 0, 100
+
     return templates.TemplateResponse("parent_cabinet.html", {
         "request": request, "ok": True, "student": s, "center_name": center_name,
         "subjects": subjects, "total_debt": total_debt,
         "present": present, "total_att": total_att, "att_rate": att_rate,
         "grades": grades,
+        "coin_balance": coin_balance, "coin_value": coin_value,
     })

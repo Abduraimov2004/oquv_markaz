@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Filiallar{% endblock %}
+{% block heading %}🏢 Filiallar{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>Bitta markazda bir nechta filial. Yuqoridagi ro'yxatdan filialni tanlab, o'sha filial ma'lumotlarini ko'rasiz. "Barcha filiallar" — hammasi birga.</p></div></div>
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+
+<div class="formcard">
+  <h2 style="margin-bottom:10px">Yangi filial qo'shish</h2>
+  <form method="post" action="/owner/branches/add">
+    <div class="frow">
+      <div><label class="f">Filial nomi</label><input name="name" placeholder="masalan: Chilonzor filiali" required></div>
+      <div style="flex:2"><label class="f">Manzil (ixtiyoriy)</label><input name="address" placeholder="ko'cha, mo'ljal"></div>
+      <div style="display:flex;align-items:end"><button class="btn" type="submit">+ Qo'shish</button></div>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <div class="hd"><h2>Filiallar ({{ branches|length }})</h2></div>
+  <div class="bd">
+    {% if branches %}
+    <table>
+      <thead><tr><th>Nomi</th><th>Manzil</th><th style="text-align:center">O'quvchi</th><th style="text-align:center">Guruh</th><th style="text-align:center">O'qituvchi</th><th></th></tr></thead>
+      <tbody>
+        {% for b in branches %}
+        <tr>
+          <td><b>{{ b.name }}</b></td>
+          <td class="muted">{{ b.address or '—' }}</td>
+          <td style="text-align:center">{{ b.students }}</td>
+          <td style="text-align:center">{{ b.groups }}</td>
+          <td style="text-align:center">{{ b.teachers }}</td>
+          <td style="text-align:right;white-space:nowrap">
+            <button class="btn" style="background:#8a99a0;padding:6px 10px;font-size:12px" onclick="document.getElementById('edit-{{ b.id }}').style.display='table-row'">Tahrir</button>
+            <form method="post" action="/owner/branches/{{ b.id }}/delete" style="display:inline" onsubmit="return confirm('Filial o\'chirilsinmi? Yozuvlar &quot;umumiy&quot;ga o\'tadi.')">
+              <button class="btn" style="background:var(--danger);padding:6px 10px;font-size:12px">O'chirish</button>
+            </form>
+          </td>
+        </tr>
+        <tr id="edit-{{ b.id }}" style="display:none;background:var(--soft)">
+          <td colspan="6">
+            <form method="post" action="/owner/branches/{{ b.id }}/edit" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap">
+              <div><label class="f">Nomi</label><input name="name" value="{{ b.name }}" required style="width:200px"></div>
+              <div><label class="f">Manzil</label><input name="address" value="{{ b.address or '' }}" style="width:240px"></div>
+              <button class="btn" type="submit" style="padding:8px 14px">Saqlash</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali filial qo'shilmagan. Yuqoridan birinchi filialingizni qo'shing.</div>{% endif %}
+
+    {% if unassigned.students or unassigned.groups or unassigned.teachers %}
+    <div class="muted" style="font-size:12.5px;margin-top:14px;padding:10px;background:var(--soft);border-radius:10px">
+      📌 Filialsiz (umumiy): {{ unassigned.students }} o'quvchi · {{ unassigned.groups }} guruh · {{ unassigned.teachers }} o'qituvchi.
+      Ular "Barcha filiallar" ko'rinishida chiqadi. Filialga biriktirish uchun tahrirlашда filial tanlang.
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

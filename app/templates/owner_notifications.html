@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Bildirishnomalar{% endblock %}
+{% block heading %}🔔 Bildirishnomalar{% endblock %}
+{% block content %}
+
+<div class="pagehead">
+  <div><p>Tizim xabarlari: xarajat so'rovlari, to'lovlar va boshqalar.</p></div>
+  {% if unread %}
+  <form method="post" action="/owner/notifications/read" style="margin:0">
+    <button class="btn" style="background:#8a99a0">Hammasini o'qildi deb belgilash ({{ unread }})</button>
+  </form>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="bd" style="padding:0">
+    {% if items %}
+    {% for n in items %}
+    <div style="display:flex;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);{{ 'background:var(--soft)' if not n.read_at }}">
+      <div style="width:8px;flex-shrink:0;display:flex;justify-content:center">
+        {% if not n.read_at %}<span style="width:8px;height:8px;border-radius:50%;background:var(--brand);margin-top:6px"></span>{% endif %}
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:14px">
+          {% if n.kind=='success' %}✅{% elif n.kind=='warning' %}⚠️{% elif n.kind=='expense' %}🧾{% elif n.kind=='payment' %}💳{% else %}🔔{% endif %}
+          {{ n.title }}
+        </div>
+        {% if n.body %}<div class="muted" style="font-size:13px;margin-top:3px">{{ n.body }}</div>{% endif %}
+        <div class="muted" style="font-size:11.5px;margin-top:4px">{{ (n.created_at or '')[:16].replace('T',' ') }}</div>
+      </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="empty">Hozircha bildirishnoma yo'q.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

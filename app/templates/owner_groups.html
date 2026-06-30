@@ -17,6 +17,14 @@
       </div>
       <div><label class="f">Kunlar</label><input name="schedule_days" placeholder="Du,Chor,Ju"></div>
       <div><label class="f">Vaqt</label><input name="schedule_time" placeholder="16:00"></div>
+      {% if user.branches %}
+      <div><label class="f">🏢 Filial</label>
+        <select name="branch_id">
+          <option value="">Umumiy</option>
+          {% for b in user.branches %}<option value="{{ b.id }}" {{ 'selected' if user.active_branch==b.id }}>{{ b.name }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div><button class="btn" type="submit">+ Qo'shish</button></div>
     </div>
     <p class="muted" style="font-size:12px;margin-top:10px">Oylik to'lov bu yerda emas — <a href="/owner/settings/fees" style="color:var(--brand);font-weight:600">Sozlamalar → Fan narxlari</a> bo'limidan belgilanadi.</p>

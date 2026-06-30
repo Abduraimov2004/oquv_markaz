@@ -15,6 +15,14 @@
       <div><label class="f">Parol</label><input name="password" type="text" placeholder="parol123"></div>
       <div><label class="f">Foiz (%)</label><input name="commission_percent" type="number" step="0.1" placeholder="40"></div>
       <div><label class="f">Rasm</label><input name="photo" type="file" accept="image/png,image/jpeg,image/webp"></div>
+      {% if user.branches %}
+      <div><label class="f">🏢 Filial</label>
+        <select name="branch_id">
+          <option value="">Umumiy</option>
+          {% for b in user.branches %}<option value="{{ b.id }}" {{ 'selected' if user.active_branch==b.id }}>{{ b.name }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
       <div><button class="btn" type="submit">+ Qo'shish</button></div>
     </div>
   </form>

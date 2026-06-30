@@ -13,7 +13,18 @@
       --line:#e5eae8; --brand:#0f766e; --brand-2:#0b5c55; --accent:#e0a13c;
       --danger:#c2563f; --good:#2f9e6f; --sidebar:#0e2a26; --sidebar-line:#1d433d;
       --radius:14px; --shadow:0 1px 2px rgba(16,40,35,.04),0 8px 24px rgba(16,40,35,.05);
+      --input-bg:#fbfdfc; --soft:#f7faf9;
     }
+    html[data-theme="dark"]{
+      --bg:#0d1714; --panel:#14201d; --ink:#e7efec; --muted:#8aa39c;
+      --line:#23332e; --brand:#159e92; --brand-2:#17b3a4; --accent:#e0a13c;
+      --danger:#e2725a; --good:#3fbf8a; --sidebar:#0a1512; --sidebar-line:#1c322c;
+      --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+      --input-bg:#0f1a17; --soft:#0f1a17;
+    }
+    html[data-theme="dark"] input,html[data-theme="dark"] select,html[data-theme="dark"] textarea{background:var(--input-bg)}
+    html[data-theme="dark"] .pill.ok{background:#13352a;color:#7fe0b6}
+    html[data-theme="dark"] img{filter:brightness(.96)}
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:'Manrope',sans-serif;background:var(--bg);color:var(--ink);
       -webkit-font-smoothing:antialiased;line-height:1.5}
@@ -55,6 +66,12 @@
       position:sticky;top:0;z-index:5}
     .topbar h1{font-size:19px;font-weight:600}
     .who{display:flex;align-items:center;gap:10px}
+    .icon-btn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+      color:var(--ink);font-size:17px;cursor:pointer;display:grid;place-items:center;text-decoration:none;position:relative}
+    .icon-btn:hover{background:var(--soft)}
+    .icon-btn .badge{position:absolute;top:-5px;right:-5px;min-width:18px;height:18px;padding:0 4px;
+      background:var(--danger);color:#fff;border-radius:10px;font-size:11px;font-weight:700;
+      display:grid;place-items:center;line-height:1}
     .who .av{width:34px;height:34px;border-radius:50%;background:#dceae6;color:var(--brand-2);
       display:grid;place-items:center;font-family:'Sora';font-weight:700;font-size:14px}
     .who small{display:block;color:var(--muted);font-size:11.5px}
@@ -145,6 +162,26 @@
       .stats{grid-template-columns:1fr}
     }
   </style>
+  <script>
+    // Tungi rejim — localStorage'da saqlanadi
+    (function(){
+      try{
+        var t = localStorage.getItem('theme');
+        if(t==='dark'){ document.documentElement.setAttribute('data-theme','dark'); }
+      }catch(e){}
+    })();
+    function toggleTheme(){
+      var el = document.documentElement;
+      var dark = el.getAttribute('data-theme')==='dark';
+      if(dark){ el.removeAttribute('data-theme'); try{localStorage.setItem('theme','light');}catch(e){} }
+      else{ el.setAttribute('data-theme','dark'); try{localStorage.setItem('theme','dark');}catch(e){} }
+      var b=document.getElementById('themeBtn'); if(b) b.textContent = dark ? '🌙' : '☀️';
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      var b=document.getElementById('themeBtn');
+      if(b && document.documentElement.getAttribute('data-theme')==='dark') b.textContent='☀️';
+    });
+  </script>
 </head>
 <body>
   <div class="layout">
@@ -177,11 +214,13 @@
           {% set perms = user.perms or [] %}
           <div class="lbl">Asosiy</div>
           <a href="/owner" class="{{ 'active' if active=='dashboard' }}"><span class="ic">▦</span> Bosh sahifa</a>
+          <a href="/owner/notifications" class="{{ 'active' if active=='notifications' }}"><span class="ic">🔔</span> Bildirishnomalar{% if user.notif_unread %} <span style="background:var(--danger);color:#fff;border-radius:9px;padding:0 6px;font-size:11px;font-weight:700;margin-left:auto">{{ user.notif_unread if user.notif_unread < 100 else '99+' }}</span>{% endif %}</a>
           {% if user.is_owner or 'students' in perms %}<a href="/owner/students" class="{{ 'active' if active=='students' }}"><span class="ic">☺</span> O'quvchilar</a>{% endif %}
           {% if user.is_owner or 'groups' in perms %}<a href="/owner/groups" class="{{ 'active' if active=='groups' }}"><span class="ic">◫</span> Guruhlar</a>{% endif %}
           {% if user.is_owner or 'waitlist' in perms %}<a href="/owner/waitlist" class="{{ 'active' if active=='waitlist' }}"><span class="ic">⏳</span> Navbat</a>{% endif %}
           {% if user.is_owner or 'risk' in perms %}<a href="/owner/risk" class="{{ 'active' if active=='risk' }}"><span class="ic">⚠</span> Ketish xavfi</a>{% endif %}
           {% if user.is_owner or 'teachers' in perms %}<a href="/owner/teachers" class="{{ 'active' if active=='teachers' }}"><span class="ic">✓</span> O'qituvchilar</a>{% endif %}
+          {% if user.is_owner or 'branches' in perms %}<a href="/owner/branches" class="{{ 'active' if active=='branches' }}"><span class="ic">🏢</span> Filiallar</a>{% endif %}
           <div class="lbl">CRM & jadval</div>
           {% if user.is_owner or 'leads' in perms %}<a href="/owner/leads" class="{{ 'active' if active=='leads' }}"><span class="ic">◎</span> Lidlar (CRM)</a>{% endif %}
           {% if user.is_owner or 'schedule' in perms %}<a href="/owner/schedule" class="{{ 'active' if active=='schedule' }}"><span class="ic">▥</span> Dars jadvali</a>{% endif %}
@@ -189,10 +228,14 @@
           <div class="lbl">Pul</div>
           {% if user.is_owner or 'payments' in perms %}<a href="/owner/payments" class="{{ 'active' if active=='payments' }}"><span class="ic">₸</span> To'lovlar</a>{% endif %}
           {% if user.is_owner or 'cashbox' in perms %}<a href="/owner/cashbox" class="{{ 'active' if active=='cashbox' }}"><span class="ic">▣</span> Kassa</a>{% endif %}
+          {% if user.is_owner or 'expense_requests' in perms %}<a href="/owner/expense-requests" class="{{ 'active' if active=='expense_requests' }}"><span class="ic">🧾</span> Xarajat so'rovlari</a>{% endif %}
           {% if user.is_owner or 'earnings' in perms %}<a href="/owner/earnings" class="{{ 'active' if active=='earnings' }}"><span class="ic">％</span> Maoshlar</a>{% endif %}
+          {% if user.is_owner or 'coins' in perms %}<a href="/owner/coins" class="{{ 'active' if active=='coins' }}"><span class="ic">🪙</span> Coin tizimi</a>{% endif %}
           <div class="lbl">Hisobot & sozlash</div>
+          {% if user.is_owner or 'analytics' in perms %}<a href="/owner/analytics" class="{{ 'active' if active=='analytics' }}"><span class="ic">📈</span> Analitika</a>{% endif %}
           {% if user.is_owner or 'reports' in perms %}<a href="/owner/reports" class="{{ 'active' if active=='reports' }}"><span class="ic">▤</span> Hisobotlar</a>{% endif %}
           {% if user.is_owner or 'monitoring' in perms %}<a href="/owner/monitoring" class="{{ 'active' if active=='monitoring' }}"><span class="ic">◉</span> O'qituvchi nazorati</a>{% endif %}
+          {% if user.is_owner or 'holidays' in perms %}<a href="/owner/holidays" class="{{ 'active' if active=='holidays' }}"><span class="ic">📅</span> Bayram kunlari</a>{% endif %}
           {% if user.is_owner %}<a href="/owner/settings" class="{{ 'active' if active=='settings' }}"><span class="ic">⚙</span> Sozlamalar</a>{% endif %}
         {% endif %}
       </nav>
@@ -210,6 +253,18 @@
           <h1>{% block heading %}Bosh sahifa{% endblock %}</h1>
         </div>
         <div class="who">
+          {% if user.role in ['owner','reception'] and user.branches %}
+          <form method="post" action="/owner/branch/select" style="margin:0">
+            <select name="branch_id" onchange="this.form.submit()" title="Filial" style="width:auto;min-width:150px;padding:8px 10px;font-size:13px">
+              <option value="" {{ 'selected' if not user.active_branch }}>🏢 Barcha filiallar</option>
+              {% for b in user.branches %}<option value="{{ b.id }}" {{ 'selected' if user.active_branch==b.id }}>{{ b.name }}</option>{% endfor %}
+            </select>
+          </form>
+          {% endif %}
+          <button class="icon-btn" onclick="toggleTheme()" title="Tungi/kunduzgi rejim" id="themeBtn" aria-label="Mavzu">🌙</button>
+          {% if user.role in ['owner','reception'] %}
+          <a href="/owner/notifications" class="icon-btn" title="Bildirishnomalar" aria-label="Bildirishnomalar">🔔{% if user.notif_unread %}<span class="badge">{{ user.notif_unread if user.notif_unread < 100 else '99+' }}</span>{% endif %}</a>
+          {% endif %}
           <div style="text-align:right">
             <b>{{ user.name }}</b>
             <small>{{ "Tizim egasi" if user.role=="superadmin" else ("O'qituvchi" if user.role=="teacher" else ("Administrator" if user.role=="reception" else "Markaz egasi")) }}</small>

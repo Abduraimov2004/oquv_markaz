@@ -10,8 +10,10 @@ from fastapi import APIRouter, Request, Form, Depends, File, UploadFile
 from fastapi.responses import RedirectResponse
 
 from app.db import supabase
-from app.deps import templates, owner_required, staff_required, PANELS, norm_phone
+from app.deps import templates, owner_required, staff_required, PANELS, norm_phone, set_active_branch
 from app import data
+from app import coins as coinmod
+from app import notif as notifmod
 from app.notify import notify_parent
 from app.security import hash_password
 
@@ -93,11 +95,14 @@ async def dashboard(request: Request, user: dict = Depends(staff_required)):
     today = date.today().isoformat()
 
     students_all = supabase.table("students").select("*").eq("center_id", cid).execute().data or []
+    students_all = _bfilter(students_all, user.get("active_branch"))
     students = [s for s in students_all if s.get("active", True) is not False]
     groups = supabase.table("groups").select(
-        "id, name, subject, teacher_id, schedule_days, schedule_time"
+        "id, name, subject, teacher_id, schedule_days, schedule_time, branch_id"
     ).eq("center_id", cid).order("created_at", desc=True).execute().data or []
-    teachers = supabase.table("teachers").select("id, full_name").eq("center_id", cid).execute().data or []
+    groups = _bfilter(groups, user.get("active_branch"))
+    teachers = supabase.table("teachers").select("id, full_name, branch_id").eq("center_id", cid).execute().data or []
+    teachers = _bfilter(teachers, user.get("active_branch"))
     attendance_today = supabase.table("attendance").select("student_id, status").eq("center_id", cid).eq("date", today).execute().data or []
 
     sname = {s["id"]: s["full_name"] for s in students_all}
@@ -240,6 +245,7 @@ async def students_page(request: Request, user: dict = Depends(staff_required)):
         subjects.setdefault(e["student_id"], []).append(gname.get(e["group_id"], "—"))
 
     students = supabase.table("students").select("*").eq("center_id", cid).order("created_at", desc=True).execute().data or []
+    students = _bfilter(students, user.get("active_branch"))
     # holat (faol/ketgan)
     if sel_status == "active":
         students = [s for s in students if s.get("active", True) is not False]
@@ -267,19 +273,26 @@ async def students_page(request: Request, user: dict = Depends(staff_required)):
 async def students_add(
     request: Request, user: dict = Depends(staff_required),
     full_name: str = Form(...), parent_phone: str = Form(""), group_id: str = Form(""),
+    branch_id: str = Form(""),
 ):
     cid = user["center_id"]
     name = full_name.strip()
     phone = parent_phone.strip()
+    bid = branch_id or user.get("active_branch") or None
     # dublikat: bir xil ism + telefon
     if phone:
         alls = supabase.table("students").select("full_name, parent_phone").eq("center_id", cid).execute().data or []
         if any((s.get("full_name") or "").strip().lower() == name.lower()
                and (s.get("parent_phone") or "").strip() == phone for s in alls):
             return RedirectResponse("/owner/students?dup=1", status_code=303)
-    res = supabase.table("students").insert({
-        "center_id": cid, "full_name": name, "parent_phone": phone or None,
-    }).execute().data
+    obj = {"center_id": cid, "full_name": name, "parent_phone": phone or None}
+    if bid:
+        obj["branch_id"] = bid
+    try:
+        res = supabase.table("students").insert(obj).execute().data
+    except Exception:
+        obj.pop("branch_id", None)
+        res = supabase.table("students").insert(obj).execute().data
     sid = res[0]["id"] if res else None
     if sid and group_id:
         data.add_enrollment(cid, sid, group_id)
@@ -293,6 +306,7 @@ async def students_add(
 async def groups_page(request: Request, user: dict = Depends(staff_required)):
     cid = user["center_id"]
     groups = supabase.table("groups").select("*").eq("center_id", cid).order("created_at", desc=True).execute().data or []
+    groups = _bfilter(groups, user.get("active_branch"))
     teachers = supabase.table("teachers").select("id, full_name").eq("center_id", cid).execute().data or []
     tname = {t["id"]: t["full_name"] for t in teachers}
 
@@ -325,20 +339,28 @@ async def groups_add(
     request: Request, user: dict = Depends(owner_required),
     name: str = Form(...), subject: str = Form(""), teacher_id: str = Form(""),
     schedule_days: str = Form(""), schedule_time: str = Form(""), monthly_fee: str = Form(""),
+    branch_id: str = Form(""),
 ):
     try:
         fee = float(str(monthly_fee).replace(" ", "").replace(",", "")) if monthly_fee.strip() else 0
     except ValueError:
         fee = 0
+    bid = branch_id or user.get("active_branch") or None
     obj = {
         "center_id": user["center_id"], "name": name.strip(), "subject": subject.strip() or None,
         "teacher_id": teacher_id or None,
         "schedule_days": schedule_days.strip() or None, "schedule_time": schedule_time.strip() or None,
     }
+    if bid:
+        obj["branch_id"] = bid
     try:
         supabase.table("groups").insert(dict(obj, monthly_fee=fee)).execute()
     except Exception:
-        supabase.table("groups").insert(obj).execute()
+        obj.pop("branch_id", None)
+        try:
+            supabase.table("groups").insert(dict(obj, monthly_fee=fee)).execute()
+        except Exception:
+            supabase.table("groups").insert(obj).execute()
     return RedirectResponse("/owner/groups", status_code=303)
 
 
@@ -512,6 +534,7 @@ async def group_remove_student(gid: str, request: Request, user: dict = Depends(
 async def teachers_page(request: Request, user: dict = Depends(staff_required)):
     cid = user["center_id"]
     teachers = supabase.table("teachers").select("*").eq("center_id", cid).order("created_at", desc=True).execute().data or []
+    teachers = _bfilter(teachers, user.get("active_branch"))
     q = (request.query_params.get("q") or "").strip().lower()
     if q:
         teachers = [t for t in teachers if q in (t.get("full_name") or "").lower() or q in (t.get("subject") or "").lower()]
@@ -529,12 +552,15 @@ async def teachers_add(
     request: Request, user: dict = Depends(staff_required),
     full_name: str = Form(...), phone: str = Form(""), subject: str = Form(""),
     password: str = Form(""), commission_percent: str = Form(""),
-    photo: UploadFile = File(None),
+    photo: UploadFile = File(None), branch_id: str = Form(""),
 ):
     obj = {
         "center_id": user["center_id"], "full_name": full_name.strip(),
         "phone": norm_phone(phone.strip()) or None, "subject": subject.strip() or None,
     }
+    bid = branch_id or user.get("active_branch") or None
+    if bid:
+        obj["branch_id"] = bid
     if password.strip():
         from app.security import hash_password
         obj["password_hash"] = hash_password(password.strip())
@@ -565,11 +591,12 @@ async def teachers_add(
     try:
         supabase.table("teachers").insert(dict(obj, commission_percent=pct)).execute()
     except Exception:
-        # photo_url yoki commission_percent ustuni yo'q bo'lsa — minimal qo'shamiz
+        # photo_url yoki branch_id yoki commission ustuni yo'q bo'lsa — graceful
         try:
             supabase.table("teachers").insert(dict(obj, commission_percent=pct)).execute()
         except Exception:
             obj.pop("photo_url", None)
+            obj.pop("branch_id", None)
             supabase.table("teachers").insert(obj).execute()
     return RedirectResponse("/owner/teachers", status_code=303)
 
@@ -817,12 +844,27 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
     months = [(ym, _ym_label(ym)) for ym in (data.add_months(now_ym, k) for k in range(-6, 7))]
     summary = {"paid": paid_cnt, "owing": owing_cnt,
                "collected": data.income_for_month(cid, sel_month), "has_fee": has_fee}
+
+    # 💳 To'lov turlari bo'yicha taqsimot
+    mlabel = {"naqd": "Naqd", "karta": "Karta", "click": "Click", "payme": "Payme", "o'tkazma": "O'tkazma"}
+    method_stats = {}
+    try:
+        prows = supabase.table("payments").select("method, amount").eq("center_id", cid).execute().data or []
+        for p in prows:
+            m = p.get("method") or "—"
+            method_stats[m] = method_stats.get(m, 0) + float(p.get("amount") or 0)
+    except Exception:
+        method_stats = {}
+    method_stats = [{"name": mlabel.get(k, k.title() if k else "—"), "sum": int(v)}
+                    for k, v in sorted(method_stats.items(), key=lambda x: x[1], reverse=True) if v]
+
     return templates.TemplateResponse("owner_payments.html", {
         "request": request, "user": user, "active": "payments",
         "rows": rows, "groups": groups, "sel_group": sel_group, "sel_status": sel_status,
         "sel_month": sel_month, "month_label": _ym_label(sel_month), "months": months,
         "now_ym": now_ym, "is_current": sel_month == now_ym, "accounts": data.accounts(cid),
         "q": request.query_params.get("q") or "", "summary": summary,
+        "method_stats": method_stats,
         "err": request.query_params.get("err"),
     })
 
@@ -831,7 +873,7 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
 async def payments_pay(
     request: Request, user: dict = Depends(staff_required),
     student_id: str = Form(...), group_id: str = Form(...), amount: str = Form(...),
-    account_id: str = Form(""), method: str = Form(""),
+    account_id: str = Form(""), method: str = Form(""), use_coins: str = Form(""),
     gfilter: str = Form(""), mfilter: str = Form(""),
 ):
     try:
@@ -844,6 +886,22 @@ async def payments_pay(
                 "status": "paid", "paid_at": datetime.now().isoformat()}
         if not _insert_payment(base, group_id, account_id, method):
             err = "1"
+        else:
+            # 🪙 o'z vaqtida to'lov uchun coin
+            try:
+                coinmod.award_rule(user["center_id"], student_id, "ontime", "To'lov qilindi")
+            except Exception:
+                pass
+    # 🪙 coin sarflash (chegirma) — agar so'ralgan bo'lsa
+    try:
+        uc = int(str(use_coins).strip() or 0)
+    except ValueError:
+        uc = 0
+    if uc > 0:
+        bal = coinmod.balance(student_id)
+        uc = min(uc, bal)
+        if uc > 0:
+            coinmod.award(user["center_id"], student_id, -uc, "redeem", "To'lovda chegirma")
     params = []
     if gfilter:
         params.append(f"group={gfilter}")
@@ -1138,6 +1196,7 @@ async def student_detail(sid: str, request: Request, user: dict = Depends(staff_
         "total_fee": total_fee, "total_paid": total_paid_all, "total_debt": total_debt,
         "now_label": _ym_label(now_ym), "accounts": data.accounts(cid),
         "parent_link": parent_link,
+        "coin_balance": coinmod.balance(sid), "coin_value": coinmod.rules(cid).get("value", 100),
     })
 
 
@@ -1183,6 +1242,7 @@ async def leads_page(request: Request, user: dict = Depends(staff_required)):
         leads = supabase.table("leads").select("*").eq("center_id", cid).order("created_at", desc=True).execute().data or []
     except Exception:
         leads = []
+    leads = _bfilter(leads, user.get("active_branch"))
     groups = supabase.table("groups").select("id, name").eq("center_id", cid).order("name").execute().data or []
     gname = {g["id"]: g["name"] for g in groups}
 
@@ -1257,14 +1317,21 @@ async def leads_add(request: Request, user: dict = Depends(staff_required),
     if trial_date.strip():
         obj["trial_date"] = trial_date.strip()
         obj["status"] = "trial"
+    _bid = user.get("active_branch")
+    if _bid:
+        obj["branch_id"] = _bid
     try:
         supabase.table("leads").insert(obj).execute()
     except Exception:
-        obj.pop("group_id", None)
+        obj.pop("branch_id", None)
         try:
             supabase.table("leads").insert(obj).execute()
         except Exception:
-            pass
+            obj.pop("group_id", None)
+            try:
+                supabase.table("leads").insert(obj).execute()
+            except Exception:
+                pass
     return RedirectResponse("/owner/leads", status_code=303)
 
 
@@ -1330,8 +1397,11 @@ def _color_for(gid):
 @router.get("/schedule")
 async def schedule_page(request: Request, user: dict = Depends(staff_required)):
     cid = user["center_id"]
+    _abid = user.get("active_branch")
     rooms = supabase.table("rooms").select("*").eq("center_id", cid).order("name").execute().data or []
-    groups = supabase.table("groups").select("id, name, subject, teacher_id").eq("center_id", cid).order("name").execute().data or []
+    rooms = _bfilter(rooms, _abid)
+    groups_full = supabase.table("groups").select("id, name, subject, teacher_id, branch_id").eq("center_id", cid).order("name").execute().data or []
+    groups = _bfilter(groups_full, _abid)
     teachers = supabase.table("teachers").select("id, full_name").eq("center_id", cid).execute().data or []
     tname = {t["id"]: t["full_name"] for t in teachers}
     gmap = {g["id"]: g for g in groups}
@@ -1340,6 +1410,11 @@ async def schedule_page(request: Request, user: dict = Depends(staff_required)):
         slots = supabase.table("schedule_slots").select("*").eq("center_id", cid).execute().data or []
     except Exception:
         slots = []
+    if _abid:
+        # faqat shu filial guruhlari/xonalariga tegishli slotlar
+        _gids = {g["id"] for g in groups}
+        _rids = {r["id"] for r in rooms}
+        slots = [s for s in slots if (s.get("group_id") in _gids) or (s.get("room_id") in _rids)]
 
     # Har guruhda nechta o'quvchi (enrollments)
     try:
@@ -1423,6 +1498,9 @@ async def schedule_page(request: Request, user: dict = Depends(staff_required)):
     _full = {1: "Dushanba", 2: "Seshanba", 3: "Chorshanba", 4: "Payshanba", 5: "Juma", 6: "Shanba", 7: "Yakshanba"}
     shown_days = [d for d in days if d["wd"] == cur_wd] if today_only else days
 
+    # 📅 Bugun bayrammi?
+    today_holiday = _holiday_dates(cid).get(today_iso)
+
     return templates.TemplateResponse("owner_schedule.html", {
         "request": request, "user": user, "active": "schedule",
         "rooms": rooms, "groups": groups, "days": shown_days, "hours": hours,
@@ -1430,6 +1508,7 @@ async def schedule_page(request: Request, user: dict = Depends(staff_required)):
         "has_slots": bool(slots), "room_status": room_status, "free_cnt": free_cnt,
         "now_label": now.strftime("%H:%M"),
         "today_only": today_only, "today_label": _full.get(cur_wd, ""),
+        "today_holiday": today_holiday,
     })
 
 
@@ -1564,10 +1643,18 @@ async def rooms_add(request: Request, user: dict = Depends(staff_required),
         cap = int(capacity) if capacity.strip() else None
     except ValueError:
         cap = None
+    obj = {"center_id": user["center_id"], "name": name.strip(), "capacity": cap}
+    bid = user.get("active_branch")
+    if bid:
+        obj["branch_id"] = bid
     try:
-        supabase.table("rooms").insert({"center_id": user["center_id"], "name": name.strip(), "capacity": cap}).execute()
+        supabase.table("rooms").insert(obj).execute()
     except Exception:
-        pass
+        obj.pop("branch_id", None)
+        try:
+            supabase.table("rooms").insert(obj).execute()
+        except Exception:
+            pass
     return RedirectResponse("/owner/schedule", status_code=303)
 
 
@@ -2081,3 +2168,384 @@ async def risk_page(request: Request, user: dict = Depends(staff_required)):
     return templates.TemplateResponse("owner_risk.html", {
         "request": request, "user": user, "active": "risk", "rows": rows,
     })
+
+
+# ====================================================================
+#  🪙 COIN TIZIMI
+# ====================================================================
+@router.get("/coins")
+async def coins_page(request: Request, user: dict = Depends(staff_required)):
+    cid = user["center_id"]
+    r = coinmod.rules(cid)
+    st = coinmod.stats(cid)
+    bal = coinmod.balances_for_center(cid)
+    students = supabase.table("students").select("id, full_name, photo_url").eq("center_id", cid).execute().data or []
+    sname = {s["id"]: s for s in students}
+    # Top o'quvchilar
+    top = sorted(
+        [{"id": sid, "name": sname.get(sid, {}).get("full_name", "—"),
+          "photo": sname.get(sid, {}).get("photo_url"), "coins": c}
+         for sid, c in bal.items() if c],
+        key=lambda x: x["coins"], reverse=True)[:15]
+    # So'nggi tranzaksiyalar
+    txs = coinmod.recent_tx(cid, 30)
+    rlabel = {"attendance": "Davomat", "homework": "Uy vazifasi", "test70": "Test 70+",
+              "test90": "Test 90+", "ontime": "O'z vaqtida to'lov", "redeem": "Chegirma", "manual": "Qo'lda"}
+    for t in txs:
+        t["sname"] = sname.get(t.get("student_id"), {}).get("full_name", "—")
+        t["rlabel"] = rlabel.get(t.get("reason"), t.get("reason") or "—")
+    return templates.TemplateResponse("owner_coins.html", {
+        "request": request, "user": user, "active": "coins",
+        "r": r, "st": st, "top": top, "txs": txs,
+        "students": sorted(students, key=lambda s: s.get("full_name") or ""),
+        "saved": request.query_params.get("saved"),
+    })
+
+
+@router.post("/coins/rules")
+async def coins_rules_save(request: Request, user: dict = Depends(owner_required),
+                           attendance: str = Form("0"), homework: str = Form("0"),
+                           test70: str = Form("0"), test90: str = Form("0"),
+                           ontime: str = Form("0"), value: str = Form("100"),
+                           enabled: str = Form("")):
+    def _i(x, d=0):
+        try:
+            return int(float(str(x).replace(" ", "").replace(",", ".")))
+        except Exception:
+            return d
+    new = {"attendance": _i(attendance), "homework": _i(homework), "test70": _i(test70),
+           "test90": _i(test90), "ontime": _i(ontime), "value": _i(value, 100),
+           "enabled": bool(enabled)}
+    coinmod.save_rules(user["center_id"], new)
+    return RedirectResponse("/owner/coins?saved=1", status_code=303)
+
+
+@router.post("/coins/award")
+async def coins_award(request: Request, user: dict = Depends(staff_required),
+                      student_id: str = Form(...), amount: str = Form(...),
+                      note: str = Form("")):
+    try:
+        amt = int(float(str(amount).replace(" ", "").replace(",", ".")))
+    except Exception:
+        amt = 0
+    if amt and student_id:
+        coinmod.award(user["center_id"], student_id, amt, "manual", note.strip() or "Qo'lda")
+    return RedirectResponse("/owner/coins?saved=1", status_code=303)
+
+
+# ====================================================================
+#  🔔 BILDIRISHNOMALAR
+# ====================================================================
+@router.get("/notifications")
+async def notifications_page(request: Request, user: dict = Depends(staff_required)):
+    cid = user["center_id"]
+    items = notifmod.recent(cid, 60)
+    unread = sum(1 for n in items if not n.get("read_at"))
+    return templates.TemplateResponse("owner_notifications.html", {
+        "request": request, "user": user, "active": "notifications",
+        "items": items, "unread": unread,
+    })
+
+
+@router.post("/notifications/read")
+async def notifications_read(request: Request, user: dict = Depends(staff_required)):
+    notifmod.mark_all_read(user["center_id"])
+    return RedirectResponse("/owner/notifications", status_code=303)
+
+
+# ====================================================================
+#  🧾 XARAJAT SO'ROVI (administrator so'raydi -> egasi tasdiqlaydi)
+# ====================================================================
+@router.get("/expense-requests")
+async def expense_requests_page(request: Request, user: dict = Depends(staff_required)):
+    cid = user["center_id"]
+    try:
+        items = supabase.table("expense_requests").select("*").eq("center_id", cid).order("created_at", desc=True).limit(80).execute().data or []
+    except Exception:
+        items = []
+    pending = [x for x in items if x.get("status") == "pending"]
+    done = [x for x in items if x.get("status") != "pending"]
+    return templates.TemplateResponse("owner_expense_requests.html", {
+        "request": request, "user": user, "active": "expense_requests",
+        "pending": pending, "done": done, "is_owner": user.get("is_owner"),
+        "saved": request.query_params.get("saved"),
+    })
+
+
+@router.post("/expense-requests/submit")
+async def expense_request_submit(request: Request, user: dict = Depends(staff_required),
+                                 amount: str = Form(...), reason: str = Form("")):
+    try:
+        amt = float(str(amount).replace(" ", "").replace(",", "."))
+    except ValueError:
+        amt = 0
+    if amt > 0:
+        try:
+            supabase.table("expense_requests").insert({
+                "center_id": user["center_id"], "requested_by": user.get("id"),
+                "requested_name": user.get("name"), "amount": amt,
+                "reason": reason.strip() or None, "status": "pending",
+            }).execute()
+            notifmod.notify(user["center_id"], "Yangi xarajat so'rovi",
+                            f"{user.get('name')}: {int(amt):,} so'm — {reason.strip() or 'sababsiz'}".replace(",", " "),
+                            "expense")
+        except Exception:
+            pass
+    return RedirectResponse("/owner/expense-requests?saved=1", status_code=303)
+
+
+@router.post("/expense-requests/{rid}/decide")
+async def expense_request_decide(rid: str, request: Request, user: dict = Depends(owner_required),
+                                 decision: str = Form(...), account_id: str = Form("")):
+    cid = user["center_id"]
+    rows = supabase.table("expense_requests").select("*").eq("id", rid).eq("center_id", cid).limit(1).execute().data or []
+    if not rows:
+        return RedirectResponse("/owner/expense-requests", status_code=303)
+    req = rows[0]
+    if req.get("status") != "pending":
+        return RedirectResponse("/owner/expense-requests", status_code=303)
+
+    if decision == "approve":
+        amt = float(req.get("amount") or 0)
+        # Kassada mablag' yetarli bo'lsa — xarajat sifatida yozamiz
+        short, bal = _insufficient(cid, account_id, amt)
+        if short:
+            return RedirectResponse(f"/owner/expense-requests?err=nomoney", status_code=303)
+        obj = {"center_id": cid, "category": "So'rov: " + (req.get("reason") or "Xarajat"),
+               "amount": amt, "note": f"Administrator so'rovi ({req.get('requested_name') or '—'})"}
+        _insert_outflow("expenses", obj, account_id, "")
+        supabase.table("expense_requests").update({"status": "approved", "decided_at": datetime.now().isoformat(),
+                                                   "account_id": account_id or None}).eq("id", rid).execute()
+        notifmod.notify(cid, "Xarajat so'rovi tasdiqlandi",
+                        f"{int(amt):,} so'm — {req.get('reason') or ''}".replace(",", " "), "success")
+    else:
+        supabase.table("expense_requests").update({"status": "rejected", "decided_at": datetime.now().isoformat()}).eq("id", rid).execute()
+        notifmod.notify(cid, "Xarajat so'rovi rad etildi",
+                        f"{int(float(req.get('amount') or 0)):,} so'm — {req.get('reason') or ''}".replace(",", " "), "warning")
+    return RedirectResponse("/owner/expense-requests?saved=1", status_code=303)
+
+
+# ====================================================================
+#  📅 BAYRAM KUNLARI
+# ====================================================================
+def _holiday_dates(cid: str) -> dict:
+    """{ 'YYYY-MM-DD': 'nomi' } — markazning bayram kunlari."""
+    try:
+        rows = supabase.table("holidays").select("date, name").eq("center_id", cid).execute().data or []
+        return {str(r["date"])[:10]: r["name"] for r in rows}
+    except Exception:
+        return {}
+
+
+@router.get("/holidays")
+async def holidays_page(request: Request, user: dict = Depends(staff_required)):
+    cid = user["center_id"]
+    try:
+        year = int(request.query_params.get("year") or date.today().year)
+    except ValueError:
+        year = date.today().year
+    try:
+        rows = supabase.table("holidays").select("*").eq("center_id", cid).order("date").execute().data or []
+    except Exception:
+        rows = []
+    items = [h for h in rows if str(h.get("date", ""))[:4] == str(year)]
+    years = sorted({int(str(h["date"])[:4]) for h in rows} | {date.today().year, date.today().year + 1})
+    return templates.TemplateResponse("owner_holidays.html", {
+        "request": request, "user": user, "active": "holidays",
+        "items": items, "year": year, "years": years,
+        "saved": request.query_params.get("saved"),
+    })
+
+
+@router.post("/holidays/add")
+async def holidays_add(request: Request, user: dict = Depends(staff_required),
+                       hdate: str = Form(...), name: str = Form(...)):
+    cid = user["center_id"]
+    if hdate.strip() and name.strip():
+        obj = {"center_id": cid, "date": hdate.strip(), "name": name.strip()}
+        try:
+            supabase.table("holidays").insert(obj).execute()
+        except Exception:
+            # bir xil sana bo'lsa — yangilaymiz
+            try:
+                supabase.table("holidays").update({"name": name.strip()}).eq("center_id", cid).eq("date", hdate.strip()).execute()
+            except Exception:
+                pass
+    y = hdate.strip()[:4] if hdate.strip() else date.today().year
+    return RedirectResponse(f"/owner/holidays?year={y}&saved=1", status_code=303)
+
+
+@router.post("/holidays/{hid}/delete")
+async def holidays_delete(hid: str, request: Request, user: dict = Depends(staff_required)):
+    try:
+        supabase.table("holidays").delete().eq("id", hid).eq("center_id", user["center_id"]).execute()
+    except Exception:
+        pass
+    return RedirectResponse("/owner/holidays", status_code=303)
+
+
+# ====================================================================
+#  📈 ANALITIKA (chuqur)
+# ====================================================================
+@router.get("/analytics")
+async def analytics_page(request: Request, user: dict = Depends(staff_required)):
+    cid = user["center_id"]
+    now_ym = data.cur_ym()
+
+    # --- Lidlar voronkasi (Trial -> Aktiv) ---
+    try:
+        leads = supabase.table("leads").select("status").eq("center_id", cid).execute().data or []
+    except Exception:
+        leads = []
+    lc = {}
+    for l in leads:
+        st = l.get("status") or "new"
+        lc[st] = lc.get(st, 0) + 1
+    total_leads = len(leads)
+    trial_n = lc.get("trial", 0)
+    enrolled_n = lc.get("enrolled", 0)
+    lost_n = lc.get("lost", 0)
+    funnel = {
+        "total": total_leads, "new": lc.get("new", 0), "contacted": lc.get("contacted", 0),
+        "trial": trial_n, "enrolled": enrolled_n, "lost": lost_n,
+        "lead_conv": round(enrolled_n * 100 / total_leads) if total_leads else 0,
+        "trial_conv": round(enrolled_n * 100 / trial_n) if trial_n else 0,
+    }
+
+    # --- O'quvchilar: aktiv vs ketgan (churn / retention) ---
+    students = supabase.table("students").select("id, active").eq("center_id", cid).execute().data or []
+    active_n = sum(1 for s in students if s.get("active", True) is not False)
+    churned_n = sum(1 for s in students if s.get("active", True) is False)
+    total_students = len(students)
+    retention = round(active_n * 100 / total_students) if total_students else 0
+    churn = round(churned_n * 100 / total_students) if total_students else 0
+
+    # --- Oylik daromad / foyda tendensiyasi (so'nggi 6 oy) ---
+    trend = []
+    max_income = 1
+    for k in range(-5, 1):
+        ym = data.add_months(now_ym, k)
+        inc = data.income_for_month(cid, ym)
+        exp = data.expenses_for_month(cid, ym)
+        pay = sum(data.payouts_for_month(cid, ym).values())
+        profit = inc - exp - pay
+        trend.append({"ym": ym, "label": _ym_label(ym), "income": inc,
+                      "expense": exp + pay, "profit": profit})
+        max_income = max(max_income, inc, exp + pay)
+    for t in trend:
+        t["bar_income"] = round(t["income"] * 100 / max_income, 1)
+        t["bar_expense"] = round(t["expense"] * 100 / max_income, 1)
+
+    # --- Davomat darajasi (umumiy) ---
+    try:
+        att = supabase.table("attendance").select("status").eq("center_id", cid).execute().data or []
+    except Exception:
+        att = []
+    present = sum(1 for a in att if a.get("status") in ("present", "late"))
+    att_rate = round(present * 100 / len(att)) if att else None
+
+    # --- Qarzdorlik ---
+    debt_map = data.center_debtors(cid)
+    debtors_n = sum(1 for v in debt_map.values() if v > 0)
+    total_debt = sum(v for v in debt_map.values() if v > 0)
+
+    # --- Coin ---
+    coin_stats = coinmod.stats(cid)
+
+    cur = trend[-1] if trend else {"income": 0, "expense": 0, "profit": 0}
+    return templates.TemplateResponse("owner_analytics.html", {
+        "request": request, "user": user, "active": "analytics",
+        "funnel": funnel, "active_n": active_n, "churned_n": churned_n,
+        "total_students": total_students, "retention": retention, "churn": churn,
+        "trend": trend, "att_rate": att_rate, "debtors_n": debtors_n,
+        "total_debt": total_debt, "coin_stats": coin_stats, "cur": cur,
+        "month_label": _ym_label(now_ym),
+    })
+
+
+# ====================================================================
+#  🏢 FILIALLAR
+# ====================================================================
+def _bfilter(rows, bid, key="branch_id"):
+    """Filial tanlangan bo'lsa — faqat o'sha filial yozuvlari. None = hammasi."""
+    if not bid:
+        return rows
+    return [r for r in rows if r.get(key) == bid]
+
+
+@router.post("/branch/select")
+async def branch_select(request: Request, user: dict = Depends(staff_required),
+                        branch_id: str = Form("")):
+    set_active_branch(request, user["center_id"], branch_id or None)
+    back = request.headers.get("referer") or "/owner"
+    return RedirectResponse(back, status_code=303)
+
+
+@router.get("/branches")
+async def branches_page(request: Request, user: dict = Depends(owner_required)):
+    cid = user["center_id"]
+    try:
+        branches = supabase.table("branches").select("*").eq("center_id", cid).order("created_at").execute().data or []
+    except Exception:
+        branches = []
+    # har filialdagi o'quvchi/guruh/o'qituvchi soni
+    def _counts(tbl):
+        out = {}
+        try:
+            for r in (supabase.table(tbl).select("branch_id").eq("center_id", cid).execute().data or []):
+                out[r.get("branch_id")] = out.get(r.get("branch_id"), 0) + 1
+        except Exception:
+            pass
+        return out
+    sc, gc, tc = _counts("students"), _counts("groups"), _counts("teachers")
+    for b in branches:
+        b["students"] = sc.get(b["id"], 0)
+        b["groups"] = gc.get(b["id"], 0)
+        b["teachers"] = tc.get(b["id"], 0)
+    unassigned = {"students": sc.get(None, 0), "groups": gc.get(None, 0), "teachers": tc.get(None, 0)}
+    return templates.TemplateResponse("owner_branches.html", {
+        "request": request, "user": user, "active": "branches",
+        "branches": branches, "unassigned": unassigned,
+        "saved": request.query_params.get("saved"),
+    })
+
+
+@router.post("/branches/add")
+async def branches_add(request: Request, user: dict = Depends(owner_required),
+                       name: str = Form(...), address: str = Form("")):
+    if name.strip():
+        try:
+            supabase.table("branches").insert({
+                "center_id": user["center_id"], "name": name.strip(),
+                "address": address.strip() or None,
+            }).execute()
+        except Exception:
+            pass
+    return RedirectResponse("/owner/branches?saved=1", status_code=303)
+
+
+@router.post("/branches/{bid}/edit")
+async def branches_edit(bid: str, request: Request, user: dict = Depends(owner_required),
+                        name: str = Form(...), address: str = Form("")):
+    try:
+        supabase.table("branches").update({"name": name.strip(), "address": address.strip() or None}) \
+            .eq("id", bid).eq("center_id", user["center_id"]).execute()
+    except Exception:
+        pass
+    return RedirectResponse("/owner/branches?saved=1", status_code=303)
+
+
+@router.post("/branches/{bid}/delete")
+async def branches_delete(bid: str, request: Request, user: dict = Depends(owner_required)):
+    cid = user["center_id"]
+    # yozuvlarni "umumiy"ga qaytaramiz (branch_id = NULL), keyin filialni o'chiramiz
+    for tbl in ("students", "groups", "teachers", "rooms", "leads", "expenses"):
+        try:
+            supabase.table(tbl).update({"branch_id": None}).eq("center_id", cid).eq("branch_id", bid).execute()
+        except Exception:
+            pass
+    try:
+        supabase.table("branches").delete().eq("id", bid).eq("center_id", cid).execute()
+    except Exception:
+        pass
+    return RedirectResponse("/owner/branches?saved=1", status_code=303)

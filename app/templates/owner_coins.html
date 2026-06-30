@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Coin tizimi{% endblock %}
+{% block heading %}🪙 Coin tizimi{% endblock %}
+{% block content %}
+
+<div class="pagehead"><div><p>O'quvchilar coin yig'adi (davomat, test, o'z vaqtida to'lov) va chegirmaga sarflaydi.</p></div></div>
+{% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}
+
+<div class="stats" style="margin-bottom:18px">
+  <div class="stat"><div class="tag">Jami topilgan</div><div class="num">{{ st.earned }}</div><div class="sub">coin</div></div>
+  <div class="stat"><div class="tag">Sarflangan</div><div class="num">{{ st.spent }}</div><div class="sub">coin</div></div>
+  <div class="stat"><div class="tag">Aktiv balans</div><div class="num">{{ st.active }}</div><div class="sub">coin · ≈ {{ '{:,}'.format(st.active * (r.value or 0)).replace(',', ' ') }} so'm</div></div>
+  <div class="stat"><div class="tag">1 coin</div><div class="num">{{ r.value }}</div><div class="sub">so'm</div></div>
+</div>
+
+{% if user.is_owner %}
+<div class="formcard">
+  <h2 style="margin-bottom:4px">Coin qoidalari</h2>
+  <p class="muted" style="font-size:12.5px;margin-bottom:14px">Har bir amal uchun necha coin berilishini belgilang.</p>
+  <form method="post" action="/owner/coins/rules">
+    <div class="frow">
+      <div><label class="f">📋 Darsga kelganda</label><input name="attendance" type="number" value="{{ r.attendance }}"></div>
+      <div><label class="f">📚 Uy vazifasi</label><input name="homework" type="number" value="{{ r.homework }}"></div>
+      <div><label class="f">✅ Test 70–89 ball</label><input name="test70" type="number" value="{{ r.test70 }}"></div>
+      <div><label class="f">🏆 Test 90+ ball</label><input name="test90" type="number" value="{{ r.test90 }}"></div>
+    </div>
+    <div class="frow" style="margin-top:12px">
+      <div><label class="f">💳 O'z vaqtida to'lov</label><input name="ontime" type="number" value="{{ r.ontime }}"></div>
+      <div><label class="f">💰 1 coin = necha so'm</label><input name="value" type="number" value="{{ r.value }}"></div>
+      <div style="display:flex;align-items:end"><label style="display:flex;align-items:center;gap:8px;font-size:13.5px"><input type="checkbox" name="enabled" {{ 'checked' if r.enabled }}> Coin tizimi yoqilgan</label></div>
+      <div style="display:flex;align-items:end"><button class="btn" type="submit">Saqlash</button></div>
+    </div>
+  </form>
+</div>
+{% endif %}
+
+<div class="grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+  <div class="card">
+    <div class="hd"><h2>🏆 Top o'quvchilar</h2></div>
+    <div class="bd">
+      {% if top %}
+      <table>
+        <thead><tr><th>#</th><th>O'quvchi</th><th style="text-align:right">Coin</th></tr></thead>
+        <tbody>
+          {% for s in top %}
+          <tr>
+            <td style="width:30px;color:var(--muted)">{{ loop.index }}</td>
+            <td><div style="display:flex;align-items:center;gap:9px">
+              {% if s.photo %}<img src="{{ s.photo }}" style="width:30px;height:30px;border-radius:50%;object-fit:cover">
+              {% else %}<span style="width:30px;height:30px;border-radius:50%;background:#e8f2ef;color:var(--brand-2);display:grid;place-items:center;font-weight:700;font-size:12px">{{ (s.name or '?')[0]|upper }}</span>{% endif %}
+              <b>{{ s.name }}</b></div></td>
+            <td style="text-align:right"><b>{{ s.coins }}</b> 🪙</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}<div class="empty">Hali coin yig'ilmagan.</div>{% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="hd"><h2>Qo'lda coin berish</h2></div>
+    <div class="bd">
+      <form method="post" action="/owner/coins/award">
+        <label class="f">O'quvchi</label>
+        <select name="student_id" required>
+          <option value="">— tanlang —</option>
+          {% for s in students %}<option value="{{ s.id }}">{{ s.full_name }}</option>{% endfor %}
+        </select>
+        <div class="frow" style="margin-top:10px">
+          <div><label class="f">Coin (manfiy = ayirish)</label><input name="amount" type="number" placeholder="10" required></div>
+          <div><label class="f">Izoh</label><input name="note" placeholder="masalan: faollik uchun"></div>
+        </div>
+        <div style="margin-top:12px"><button class="btn" type="submit">Berish</button></div>
+      </form>
+      <p class="muted" style="font-size:11.5px;margin-top:10px">Chegirma uchun to'lov sahifasida coin sarflanadi (manfiy yozsangiz shu yerda ham ayiriladi).</p>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:18px">
+  <div class="hd"><h2>So'nggi harakatlar</h2></div>
+  <div class="bd">
+    {% if txs %}
+    <table>
+      <thead><tr><th>O'quvchi</th><th>Sabab</th><th style="text-align:right">Coin</th><th>Izoh</th></tr></thead>
+      <tbody>
+        {% for t in txs %}
+        <tr>
+          <td><b>{{ t.sname }}</b></td>
+          <td class="muted">{{ t.rlabel }}</td>
+          <td style="text-align:right;font-weight:700;color:{{ 'var(--good)' if t.amount>=0 else 'var(--danger)' }}">{{ '+' if t.amount>=0 else '' }}{{ t.amount }}</td>
+          <td class="muted">{{ t.note or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}<div class="empty">Hali harakat yo'q.</div>{% endif %}
+  </div>
+</div>
+
+{% endblock %}

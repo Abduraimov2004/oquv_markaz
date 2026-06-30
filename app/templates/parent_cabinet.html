@@ -72,6 +72,15 @@
   </div>
 
   <div class="card">
+    <h2>🪙 Coinlar</h2>
+    <div style="text-align:center">
+      <div class="big" style="color:var(--brand)">{{ coin_balance }}</div>
+      <div class="muted" style="font-size:13px">≈ {{ '{:,}'.format(coin_balance * coin_value).replace(',', ' ') }} so'm chegirma</div>
+    </div>
+    <div class="muted" style="font-size:12px;margin-top:8px;text-align:center">Darsga kelish, test va o'z vaqtida to'lov uchun coin yig'iladi.</div>
+  </div>
+
+  <div class="card">
     <h2>Oxirgi baholar</h2>
     {% if grades %}
       {% for g in grades %}

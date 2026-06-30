@@ -13,6 +13,7 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import RedirectResponse
 
 from app.db import supabase
+from app import coins as coinmod
 from app.deps import templates, teacher_required
 from app.notify import notify_parent
 from app import data
@@ -133,6 +134,11 @@ async def attendance_save(request: Request, user: dict = Depends(teacher_require
         if changed:
             if new_status == "present":
                 await notify_parent(s["id"], f"✅ {s['full_name']} darsga keldi ({d}).")
+                # 🪙 darsga kelgani uchun coin
+                try:
+                    coinmod.award_rule(cid, s["id"], "attendance", f"Darsga keldi ({d})")
+                except Exception:
+                    pass
             else:
                 await notify_parent(s["id"], f"❌ {s['full_name']} bugun darsga kelmadi ({d}).")
 

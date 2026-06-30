@@ -5,6 +5,12 @@
 
 <div class="pagehead"><div><p>Haftalik jadval — qaysi guruh, qaysi xona, qaysi vaqt. Xona yoki o'qituvchi ikki joyda bo'lib qolsa, tizim ogohlantiradi.</p></div></div>
 
+{% if today_holiday %}
+<div class="err" style="background:#fdeede;color:#9a5b14;display:flex;align-items:center;gap:8px">
+  🎉 <b>Bugun bayram:</b> {{ today_holiday }} — bugun darslar bo'lmasligi mumkin.
+</div>
+{% endif %}
+
 {% if request and request.query_params.get('gen') %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Namuna jadval yaratildi ({{ request.query_params.get('gen') }} ta dars). Kerak bo'lsa tahrirlang.</div>{% endif %}
 {% if err == "nogroups" %}<div class="err">Avval guruh qo'shing — jadval guruhlarga asoslanadi.</div>{% endif %}
 

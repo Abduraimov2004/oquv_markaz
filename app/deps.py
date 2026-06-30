@@ -27,6 +27,12 @@ PANELS = [
     ("cashbox", "Kassa"),
     ("earnings", "Maoshlar"),
     ("monitoring", "O'qituvchi nazorati"),
+    ("coins", "Coin tizimi"),
+    ("notifications", "Bildirishnomalar"),
+    ("expense_requests", "Xarajat so'rovlari"),
+    ("analytics", "Analitika"),
+    ("holidays", "Bayram kunlari"),
+    ("branches", "Filiallar"),
 ]
 GRANTABLE = {k for k, _ in PANELS}
 
@@ -153,6 +159,20 @@ def clear_user(request: Request):
         request.session["slots"] = slots
 
 
+def active_branch(request: Request, cid):
+    """Tanlangan filial id (yoki None = barcha filiallar)."""
+    return (request.session.get("branch") or {}).get(str(cid))
+
+
+def set_active_branch(request: Request, cid, bid):
+    b = dict(request.session.get("branch") or {})
+    if bid:
+        b[str(cid)] = bid
+    else:
+        b.pop(str(cid), None)
+    request.session["branch"] = b
+
+
 def _staff_guard(request: Request, allow: tuple) -> dict:
     user = current_user(request)
     if not user:
@@ -172,6 +192,23 @@ def _staff_guard(request: Request, allow: tuple) -> dict:
     user["center_name"] = c.get("name")
     user["center_logo"] = c.get("logo_url")
     user["is_owner"] = (role == "owner")
+    try:
+        from app import notif as _notif
+        user["notif_unread"] = _notif.unread_count(user.get("center_id"))
+    except Exception:
+        user["notif_unread"] = 0
+    # 🏢 Filiallar — ro'yxat + tanlangan filial
+    cid2 = user.get("center_id")
+    try:
+        brs = supabase.table("branches").select("id, name").eq("center_id", cid2).order("name").execute().data or []
+    except Exception:
+        brs = []
+    bid = active_branch(request, cid2)
+    if bid and not any(b["id"] == bid for b in brs):
+        bid = None
+    user["branches"] = brs
+    user["active_branch"] = bid
+    user["active_branch_name"] = next((b["name"] for b in brs if b["id"] == bid), None)
     if role == "reception":
         perms = _load_perms(user.get("id"))
         user["perms"] = perms
