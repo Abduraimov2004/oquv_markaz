@@ -36,6 +36,30 @@ async def _auth_redirect_handler(request: Request, exc: AuthRedirect):
     return RedirectResponse(exc.to, status_code=303)
 
 
+# Forma to'liq to'ldirilmasa (masalan summa bo'sh) — JSON xato emas, ortga qaytaramiz
+from fastapi.exceptions import RequestValidationError
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_handler(request: Request, exc: RequestValidationError):
+    ref = request.headers.get("referer") or "/"
+    sep = "&" if "?" in ref else "?"
+    return RedirectResponse(f"{ref}{sep}form_err=1", status_code=303)
+
+
+@app.get("/locked")
+async def _locked(request: Request):
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(
+        "<div style=\"font-family:system-ui;max-width:520px;margin:14vh auto;text-align:center;padding:0 20px\">"
+        "<div style=\"font-size:54px\">🔒</div>"
+        "<h2 style=\"color:#b3261e;margin:10px 0\">Filial vaqtincha o'chirilgan</h2>"
+        "<p style=\"color:#555;line-height:1.6\">Bu filial obunasi tugagan yoki administrator tomonidan o'chirilgan. "
+        "Iltimos, markaz egasiga murojaat qiling.</p>"
+        "<a href=\"/logout\" style=\"display:inline-block;margin-top:14px;color:#0f766e;font-weight:600\">Chiqish</a>"
+        "</div>")
+
+
 # --------------------------------------------------------------------
 #  BOSH SAHIFA — rolga qarab yo'naltirish
 # --------------------------------------------------------------------

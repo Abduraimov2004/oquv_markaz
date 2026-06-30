@@ -87,6 +87,60 @@
 </div>
 
 <div class="card" style="margin-top:18px">
+  <div class="hd"><h2>💵 Narx sozlamalari (filial obunasi shu asosda hisoblanadi)</h2></div>
+  <div class="bd">
+    <form method="post" action="/admin/centers/{{ center.id }}/pricing">
+      <div class="frow">
+        <div><label class="f">Bazaviy narx (1 filial)</label><input name="bill_base" type="number" value="{{ (center.bill_base if center.bill_base is not none else 150000)|int }}"></div>
+        <div><label class="f">1 o'quvchiga</label><input name="bill_per_student" type="number" value="{{ (center.bill_per_student or 0)|int }}"></div>
+        <div><label class="f">1 o'qituvchiga</label><input name="bill_per_teacher" type="number" value="{{ (center.bill_per_teacher or 0)|int }}"></div>
+        <div style="display:flex;align-items:end"><button class="btn" type="submit">Saqlash</button></div>
+      </div>
+      <p class="muted" style="font-size:12px;margin-top:8px">Filial oyligi = bazaviy + (o'quvchilar × narx) + (o'qituvchilar × narx). Har filial alohida to'lanadi.</p>
+    </form>
+  </div>
+</div>
+
+{% if branch_rows %}
+<div class="card" style="margin-top:18px">
+  <div class="hd"><h2>🏢 Filiallar obunasi ({{ branch_rows|length }})</h2></div>
+  <div class="bd">
+    <table>
+      <thead><tr><th>Filial</th><th>O'quvchi/O'qituvchi</th><th>Oylik narx</th><th>Obuna tugaydi</th><th>Holat</th><th>Boshqaruv</th></tr></thead>
+      <tbody>
+        {% for b in branch_rows %}
+        <tr>
+          <td><b>{{ b.name }}</b></td>
+          <td class="muted">{{ b.students }} / {{ b.teachers }}</td>
+          <td><b>{{ "{:,.0f}".format(b.price).replace(",", " ") }}</b> so'm</td>
+          <td class="muted">{{ b.sub_until or '—' }}{% if b.days is not none %} <span style="font-size:11px">({{ b.days }} kun)</span>{% endif %}</td>
+          <td>
+            {% if b.suspended %}<span style="color:#b3261e">🔒 O'chirilgan</span>
+            {% elif b.force_active %}<span style="color:#9a6b14">⚡ Majburiy faol</span>
+            {% elif b.expired %}<span style="color:#b3261e">Tugagan</span>
+            {% else %}<span style="color:#1f7a52">Faol</span>{% endif %}
+          </td>
+          <td style="white-space:nowrap">
+            <form method="post" action="/admin/branches/{{ b.id }}/extend" style="display:inline-flex;gap:4px">
+              <select name="months" style="width:auto;padding:5px 7px;font-size:12px">{% for n in [1,2,3,6,12] %}<option value="{{ n }}">{{ n }}oy</option>{% endfor %}</select>
+              <button class="btn" style="padding:5px 9px;font-size:12px">+Uzaytir</button>
+            </form>
+            <form method="post" action="/admin/branches/{{ b.id }}/suspend" style="display:inline">
+              <button class="btn" style="padding:5px 9px;font-size:12px;background:{{ '#1f7a52' if b.suspended else '#c2563f' }}">{{ 'Yoqish' if b.suspended else 'O\'chirish' }}</button>
+            </form>
+            <form method="post" action="/admin/branches/{{ b.id }}/force" style="display:inline">
+              <button class="btn" style="padding:5px 9px;font-size:12px;background:{{ '#9a6b14' if b.force_active else '#5b7a86' }}">{{ 'Majburiyni olib tashlash' if b.force_active else 'Majburiy faol' }}</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="card" style="margin-top:18px">
   <div class="hd"><h2>Obuna to'lov tarixi</h2></div>
   <div class="bd">
     {% if history %}

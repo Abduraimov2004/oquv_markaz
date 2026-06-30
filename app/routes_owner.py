@@ -873,20 +873,24 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
     summary = {"paid": paid_cnt, "owing": owing_cnt,
                "collected": data.income_for_month(cid, sel_month, _branch_sids), "has_fee": has_fee}
 
-    # 💳 To'lov turlari bo'yicha taqsimot
-    mlabel = {"naqd": "Naqd", "karta": "Karta", "click": "Click", "payme": "Payme", "o'tkazma": "O'tkazma", "coin": "🪙 Coin"}
-    method_stats = {}
+    # 💳 To'lov turlari: Naqd va Naqddan tashqari (qolganlari birlashtirilgan)
+    pay_naqd = 0.0
+    pay_noncash = 0.0
     try:
         prows = supabase.table("payments").select("method, amount, student_id").eq("center_id", cid).execute().data or []
         for p in prows:
             if _branch_sids is not None and p.get("student_id") not in _branch_sids:
                 continue
-            m = p.get("method") or "—"
-            method_stats[m] = method_stats.get(m, 0) + float(p.get("amount") or 0)
+            m = (p.get("method") or "").strip()
+            val = float(p.get("amount") or 0)
+            if m == "naqd":
+                pay_naqd += val
+            elif m:  # karta/click/payme/o'tkazma/coin — naqd emas (bo'sh/—larni hisobga olmaymiz)
+                pay_noncash += val
     except Exception:
-        method_stats = {}
-    method_stats = [{"name": mlabel.get(k, k.title() if k else "—"), "sum": int(v)}
-                    for k, v in sorted(method_stats.items(), key=lambda x: x[1], reverse=True) if v]
+        pass
+    method_stats = [{"name": "Naqd", "sum": int(pay_naqd)},
+                    {"name": "Naqddan tashqari", "sum": int(pay_noncash)}]
 
     return templates.TemplateResponse("owner_payments.html", {
         "request": request, "user": user, "active": "payments",
@@ -902,27 +906,17 @@ async def payments_page(request: Request, user: dict = Depends(staff_required)):
 @router.post("/payments/pay")
 async def payments_pay(
     request: Request, user: dict = Depends(staff_required),
-    student_id: str = Form(...), group_id: str = Form(...), amount: str = Form(...),
+    student_id: str = Form(...), group_id: str = Form(...), amount: str = Form(""),
     account_id: str = Form(""), method: str = Form(""), use_coins: str = Form(""),
     gfilter: str = Form(""), mfilter: str = Form(""),
 ):
+    cid = user["center_id"]
     try:
-        amt = float(str(amount).replace(" ", "").replace(",", ""))
+        amt = float(str(amount).replace(" ", "").replace(",", "")) if amount.strip() else 0
     except ValueError:
         amt = 0
     err = ""
-    if amt > 0:
-        base = {"center_id": user["center_id"], "student_id": student_id, "amount": amt,
-                "status": "paid", "paid_at": datetime.now().isoformat()}
-        if not _insert_payment(base, group_id, account_id, method):
-            err = "1"
-        else:
-            # 🪙 o'z vaqtida to'lov uchun coin
-            try:
-                coinmod.award_rule(user["center_id"], student_id, "ontime", "To'lov qilindi")
-            except Exception:
-                pass
-    # 🪙 coin sarflash (chegirma) — agar so'ralgan bo'lsa
+    # 🪙 coin sarflash (chegirma) — qiymati to'lov sifatida yoziladi (qarz kamayadi)
     try:
         uc = int(str(use_coins).strip() or 0)
     except ValueError:
@@ -931,7 +925,21 @@ async def payments_pay(
         bal = coinmod.balance(student_id)
         uc = min(uc, bal)
         if uc > 0:
-            coinmod.award(user["center_id"], student_id, -uc, "redeem", "To'lovda chegirma")
+            cval = int(coinmod.rules(cid).get("value", 100) or 100)
+            cbase = {"center_id": cid, "student_id": student_id, "amount": uc * cval,
+                     "status": "paid", "paid_at": datetime.now().isoformat()}
+            _insert_payment(cbase, group_id, "", "coin")
+            coinmod.award(cid, student_id, -uc, "redeem", "To'lovda ishlatildi")
+    if amt > 0:
+        base = {"center_id": cid, "student_id": student_id, "amount": amt,
+                "status": "paid", "paid_at": datetime.now().isoformat()}
+        if not _insert_payment(base, group_id, account_id, method):
+            err = "1"
+        else:
+            try:
+                coinmod.award_rule(cid, student_id, "ontime", "To'lov qilindi")
+            except Exception:
+                pass
     params = []
     if gfilter:
         params.append(f"group={gfilter}")
@@ -1931,6 +1939,9 @@ async def settings_subscription(request: Request, user: dict = Depends(owner_req
     cid = user["center_id"]
     rows = supabase.table("centers").select("*").eq("id", cid).limit(1).execute().data or [{}]
     c = rows[0]
+    branch_rows = data.branch_billing_rows(cid, c)
+    for b in branch_rows:
+        b["accounts"] = data.accounts(cid, branch_id=b["id"])
     su = c.get("subscription_until")
     days = None
     if su:
@@ -1940,7 +1951,7 @@ async def settings_subscription(request: Request, user: dict = Depends(owner_req
             days = None
     try:
         history = (supabase.table("center_payments").select("*").eq("center_id", cid)
-                   .order("paid_at", desc=True).limit(30).execute().data) or []
+                   .order("paid_at", desc=True).limit(40).execute().data) or []
     except Exception:
         history = []
     total = sum(float(h["amount"] or 0) for h in history)
@@ -1948,6 +1959,7 @@ async def settings_subscription(request: Request, user: dict = Depends(owner_req
         "request": request, "user": user, "active": "settings",
         "center": c, "days": days, "history": history, "total": total,
         "monthly_fee": float(c.get("monthly_fee") or 0), "accounts": data.accounts(cid),
+        "branch_rows": branch_rows,
         "saved": request.query_params.get("saved"), "err": request.query_params.get("err"),
     })
 
@@ -1960,21 +1972,53 @@ def _add_months_date(d: date, n: int) -> date:
 
 @router.post("/settings/subscription/pay")
 async def settings_subscription_pay(request: Request, user: dict = Depends(owner_required),
-                                    months: str = Form("1"), account_id: str = Form(""), method: str = Form("")):
-    """Markaz egasi obunani o'zi to'laydi — avtomatik cho'ziladi."""
+                                    months: str = Form("1"), account_id: str = Form(""),
+                                    method: str = Form(""), branch_id: str = Form("")):
+    """Markaz egasi obunani o'zi to'laydi. branch_id berilsa — o'sha filial obunasi."""
     cid = user["center_id"]
     rows = supabase.table("centers").select("*").eq("id", cid).limit(1).execute().data or []
     if not rows:
         return RedirectResponse("/owner/settings/subscription?err=1", status_code=303)
     c = rows[0]
-    fee = float(c.get("monthly_fee") or 0)
-    if fee <= 0:
-        # narx belgilanmagan bo'lsa, tizim egasi belgilashi kerak
-        return RedirectResponse("/owner/settings/subscription?err=2", status_code=303)
     try:
         n = max(1, int(months))
     except ValueError:
         n = 1
+
+    # ---- FILIAL obunasi ----
+    if branch_id:
+        brs = supabase.table("branches").select("*").eq("id", branch_id).eq("center_id", cid).limit(1).execute().data or []
+        if not brs:
+            return RedirectResponse("/owner/settings/subscription?err=1", status_code=303)
+        b = brs[0]
+        ns = len(supabase.table("students").select("id").eq("center_id", cid).eq("branch_id", branch_id).execute().data or [])
+        nt = len(supabase.table("teachers").select("id").eq("center_id", cid).eq("branch_id", branch_id).execute().data or [])
+        price = data.branch_monthly_price(c, ns, nt)
+        amt = price * n
+        base = date.today()
+        su = b.get("sub_until")
+        if su:
+            try:
+                d = date.fromisoformat(str(su)[:10])
+                if d > base:
+                    base = d
+            except Exception:
+                pass
+        new_until = _add_months_date(base, n)
+        short, bal = _insufficient(cid, account_id, amt)
+        if short:
+            return RedirectResponse(f"/owner/settings/subscription?err=nomoney&bal={int(bal)}&need={int(amt)}", status_code=303)
+        base_obj = {"center_id": cid, "amount": amt, "months": n,
+                    "until": new_until.isoformat(), "note": f"Filial obunasi: {b.get('name')}",
+                    "paid_at": datetime.now().isoformat()}
+        _insert_outflow("center_payments", base_obj, account_id, method)
+        supabase.table("branches").update({"sub_until": new_until.isoformat(), "suspended": False}).eq("id", branch_id).execute()
+        return RedirectResponse("/owner/settings/subscription?saved=1", status_code=303)
+
+    # ---- Markaz obunasi (filialsiz markazlar uchun, eski usul) ----
+    fee = float(c.get("monthly_fee") or 0)
+    if fee <= 0:
+        return RedirectResponse("/owner/settings/subscription?err=2", status_code=303)
     base = date.today()
     su = c.get("subscription_until")
     if su:

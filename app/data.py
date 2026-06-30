@@ -211,6 +211,49 @@ def branch_members(cid: str, bid):
     return _ids("students"), _ids("groups"), _ids("teachers")
 
 
+def branch_monthly_price(center, n_students, n_teachers) -> float:
+    """Filial oylik narxi = baza + o'quvchi×narx + o'qituvchi×narx."""
+    c = center or {}
+    base = float(c.get("bill_base") if c.get("bill_base") is not None else 150000)
+    ps = float(c.get("bill_per_student") or 0)
+    pt = float(c.get("bill_per_teacher") or 0)
+    return base + ps * (n_students or 0) + pt * (n_teachers or 0)
+
+
+def branch_billing_rows(cid: str, center: dict) -> list:
+    """Har filial uchun billing ma'lumoti (narx, obuna holati)."""
+    from datetime import date as _d
+    try:
+        brs = supabase.table("branches").select("*").eq("center_id", cid).order("created_at").execute().data or []
+    except Exception:
+        brs = []
+    def _cnt(tbl):
+        m = {}
+        try:
+            for r in supabase.table(tbl).select("branch_id").eq("center_id", cid).execute().data or []:
+                m[r.get("branch_id")] = m.get(r.get("branch_id"), 0) + 1
+        except Exception:
+            pass
+        return m
+    sc, tc = _cnt("students"), _cnt("teachers")
+    out = []
+    for b in brs:
+        ns, nt = sc.get(b["id"], 0), tc.get(b["id"], 0)
+        price = branch_monthly_price(center, ns, nt)
+        su = b.get("sub_until")
+        days = None
+        if su:
+            try:
+                days = (_d.fromisoformat(str(su)[:10]) - _d.today()).days
+            except Exception:
+                days = None
+        expired = (days is not None and days < 0)
+        blocked = bool(b.get("suspended")) or (expired and not b.get("force_active"))
+        out.append({**b, "students": ns, "teachers": nt, "price": price,
+                    "days": days, "expired": expired, "blocked": blocked})
+    return out
+
+
 def paid_total_by_pair(cid: str, student_ids=None) -> dict:
     """(student_id, group_id) -> umrbod jami to'langan (oylik balans uchun)."""
     try:

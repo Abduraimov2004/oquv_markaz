@@ -58,15 +58,22 @@
         <div class="frow">
           <div><label class="f">Nomi</label><input name="name" placeholder="Uzcard / Naqd kassa" required></div>
           <div><label class="f">Turi</label>
-            <select name="kind">
+            <select name="kind" id="acc_kind" onchange="toggleCard()">
               <option value="cash">Naqd</option><option value="card">Karta</option>
               <option value="click">Click</option><option value="payme">Payme</option><option value="other">Boshqa</option>
             </select>
           </div>
-          <div><label class="f">Karta raqami (ixtiyoriy)</label><input name="card_number" placeholder="8600 ХХХХ ХХХХ ХХХХ"></div>
+          <div id="card_wrap" style="display:none"><label class="f">Karta raqami</label><input name="card_number" placeholder="8600 ХХХХ ХХХХ ХХХХ"></div>
           <div><label class="f">Hozirgi qoldiq</label><input name="opening_balance" type="number" placeholder="0"></div>
           <div><button class="btn" type="submit">+ Qo'shish</button></div>
         </div>
+        <script>
+        function toggleCard(){
+          var k=document.getElementById('acc_kind').value;
+          document.getElementById('card_wrap').style.display = (k==='cash') ? 'none' : '';
+        }
+        toggleCard();
+        </script>
         <p class="muted" style="font-size:12px;margin-top:8px">"Hozirgi qoldiq" — hozir kartada/kassada bor pul. Keyingi kirim-chiqimlar shunga qo'shilib boradi.</p>
       </form>
     </details>

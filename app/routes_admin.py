@@ -10,6 +10,7 @@ from fastapi import APIRouter, Request, Form, Depends, File, UploadFile
 from fastapi.responses import RedirectResponse
 
 from app.db import supabase
+from app import data
 from app.security import hash_password
 from app.deps import norm_phone, templates, admin_required, _sys_get
 
@@ -158,10 +159,12 @@ async def center_detail(cid: str, request: Request, user: dict = Depends(admin_r
         history = []
     total_paid = sum(float(h["amount"] or 0) for h in history)
 
+    branch_rows = data.branch_billing_rows(cid, center)
+
     return templates.TemplateResponse("admin_center_detail.html", {
         "request": request, "user": user, "active": "centers",
         "center": center, "owner": owner, "counts": counts,
-        "history": history, "total_paid": total_paid,
+        "history": history, "total_paid": total_paid, "branch_rows": branch_rows,
         "saved": request.query_params.get("saved"), "err": request.query_params.get("err"),
     })
 
@@ -255,6 +258,75 @@ async def center_force(cid: str, request: Request, user: dict = Depends(admin_re
     cur = bool(rows[0].get("force_active")) if rows else False
     supabase.table("centers").update({"force_active": (not cur)}).eq("id", cid).execute()
     return RedirectResponse(f"/admin/centers/{cid}", status_code=303)
+
+
+# ====================================================================
+#  💵 NARX SOZLAMALARI + FILIAL OBUNALARI
+# ====================================================================
+@router.post("/centers/{cid}/pricing")
+async def center_pricing(cid: str, request: Request, user: dict = Depends(admin_required),
+                         bill_base: str = Form("150000"), bill_per_student: str = Form("0"),
+                         bill_per_teacher: str = Form("0")):
+    def _num(x, d=0):
+        try:
+            return float(str(x).replace(" ", "").replace(",", "")) if str(x).strip() else d
+        except ValueError:
+            return d
+    try:
+        supabase.table("centers").update({
+            "bill_base": _num(bill_base, 150000),
+            "bill_per_student": _num(bill_per_student, 0),
+            "bill_per_teacher": _num(bill_per_teacher, 0),
+        }).eq("id", cid).execute()
+    except Exception:
+        pass
+    return RedirectResponse(f"/admin/centers/{cid}?saved=1", status_code=303)
+
+
+@router.post("/branches/{bid}/suspend")
+async def branch_suspend(bid: str, request: Request, user: dict = Depends(admin_required)):
+    """Filialni o'chirish/yoqish (ON/OFF)."""
+    rows = supabase.table("branches").select("suspended, center_id").eq("id", bid).limit(1).execute().data or []
+    cur = bool(rows[0].get("suspended")) if rows else False
+    cdid = rows[0].get("center_id") if rows else ""
+    supabase.table("branches").update({"suspended": (not cur)}).eq("id", bid).execute()
+    return RedirectResponse(f"/admin/centers/{cdid}", status_code=303)
+
+
+@router.post("/branches/{bid}/force")
+async def branch_force(bid: str, request: Request, user: dict = Depends(admin_required)):
+    """Obuna tugasa ham filial ishlasin (majburiy faol)."""
+    rows = supabase.table("branches").select("force_active, center_id").eq("id", bid).limit(1).execute().data or []
+    cur = bool(rows[0].get("force_active")) if rows else False
+    cdid = rows[0].get("center_id") if rows else ""
+    supabase.table("branches").update({"force_active": (not cur)}).eq("id", bid).execute()
+    return RedirectResponse(f"/admin/centers/{cdid}", status_code=303)
+
+
+@router.post("/branches/{bid}/extend")
+async def branch_extend(bid: str, request: Request, user: dict = Depends(admin_required),
+                        months: str = Form("1")):
+    """Filial obunasini superadmin uzaytiradi (qo'lda)."""
+    rows = supabase.table("branches").select("*").eq("id", bid).limit(1).execute().data or []
+    if not rows:
+        return RedirectResponse("/admin/centers", status_code=303)
+    b = rows[0]
+    try:
+        n = max(1, int(months))
+    except ValueError:
+        n = 1
+    base = date.today()
+    su = b.get("sub_until")
+    if su:
+        try:
+            d = date.fromisoformat(str(su)[:10])
+            if d > base:
+                base = d
+        except Exception:
+            pass
+    new_until = _add_months_date(base, n)
+    supabase.table("branches").update({"sub_until": new_until.isoformat(), "suspended": False}).eq("id", bid).execute()
+    return RedirectResponse(f"/admin/centers/{b.get('center_id')}?saved=1", status_code=303)
 
 
 

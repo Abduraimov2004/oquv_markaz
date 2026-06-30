@@ -195,7 +195,7 @@ def _staff_guard(request: Request, allow: tuple) -> dict:
     # 🏢 Filiallar — owner istalganini tanlaydi; admin tayinlangan filialiga qulflangan
     cid2 = user.get("center_id")
     try:
-        brs = supabase.table("branches").select("id, name, created_at").eq("center_id", cid2).order("created_at").execute().data or []
+        brs = supabase.table("branches").select("id, name, created_at, sub_until, suspended, force_active").eq("center_id", cid2).order("created_at").execute().data or []
     except Exception:
         brs = []
     if role == "owner":
@@ -219,6 +219,28 @@ def _staff_guard(request: Request, allow: tuple) -> dict:
     user["branches"] = brs
     user["active_branch"] = bid
     user["active_branch_name"] = next((b["name"] for b in brs if b["id"] == bid), None)
+    # 🏢 Filial obunasi nazorati
+    branch_blocked = None
+    if brs and bid:
+        abr = next((b for b in brs if b["id"] == bid), None)
+        if abr:
+            if abr.get("suspended"):
+                branch_blocked = "off"          # superadmin o'chirgan
+            else:
+                su = abr.get("sub_until")
+                if su and not abr.get("force_active"):
+                    try:
+                        from datetime import date as _dd
+                        if _dd.fromisoformat(str(su)[:10]) < _dd.today():
+                            branch_blocked = "expired"
+                    except Exception:
+                        pass
+    user["branch_blocked"] = branch_blocked
+    # reception bloklangan filialda ishlay olmaydi (to'lay olmaydi) -> ogohlantirish sahifasi
+    if branch_blocked and role == "reception":
+        path = request.url.path
+        if not (path.startswith("/owner/branch/select") or path == "/logout"):
+            raise AuthRedirect("/locked")
     # 🔔 o'qilmagan bildirishnoma — faqat shu filial bo'yicha
     try:
         from app import notif as _notif
