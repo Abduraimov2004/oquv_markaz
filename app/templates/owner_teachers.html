@@ -28,21 +28,35 @@
 </div>
 
 <div class="card">
-  <div class="hd" style="gap:10px;flex-wrap:wrap">
-    <h2>Ro'yxat ({{ teachers|length }})</h2>
+  <div class="hd" style="gap:12px;flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <h2>Ro'yxat ({{ teachers|length }})</h2>
+      <div class="seg">
+        {% set qs = ('&q=' ~ (q|urlencode) if q else '') %}
+        <a href="/owner/teachers?status=active{{ qs }}" class="{{ 'on' if sel_status=='active' }}">Faol</a>
+        <a href="/owner/teachers?status=inactive{{ qs }}" class="{{ 'on' if sel_status=='inactive' }}">🗄 Arxiv</a>
+        <a href="/owner/teachers?status=all{{ qs }}" class="{{ 'on' if sel_status=='all' }}">Hammasi</a>
+      </div>
+    </div>
     <form method="get" action="/owner/teachers" style="margin-left:auto;display:flex;gap:8px">
+      <input type="hidden" name="status" value="{{ sel_status }}">
       <input name="q" value="{{ q }}" placeholder="🔍 Ism / fan" style="width:200px">
       <button class="btn" type="submit">Qidirish</button>
-      {% if q %}<a href="/owner/teachers" class="btn" style="background:#8a99a0">Tozalash</a>{% endif %}
+      {% if q %}<a href="/owner/teachers?status={{ sel_status }}" class="btn" style="background:#8a99a0">Tozalash</a>{% endif %}
     </form>
   </div>
   <div class="bd">
+    {% if sel_status=='inactive' %}
+    <div style="padding:11px 14px;background:var(--soft);border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)">
+      🗄 <b>Arxivlangan o'qituvchilar.</b> Qaytarmoqchi bo'lsangiz — <b>↺ Tiklash</b> tugmasini bosing.
+    </div>
+    {% endif %}
     {% if teachers %}
     <table>
-      <thead><tr><th>F.I.O.</th><th>Fan</th><th>Telefon</th><th>Foiz</th><th>Panel</th><th></th></tr></thead>
+      <thead><tr><th>F.I.O.</th><th>Fan</th><th>Telefon</th><th>Foiz</th><th>Panel</th><th>Holat</th><th></th></tr></thead>
       <tbody>
         {% for t in teachers %}
-        <tr>
+        <tr{% if not t.active %} style="opacity:.6"{% endif %}>
           <td>
             <div style="display:flex;align-items:center;gap:10px">
               {% if t.photo_url %}
@@ -57,13 +71,34 @@
           <td class="muted">{{ t.phone or "—" }}</td>
           <td>{{ t.commission_percent }}%</td>
           <td>{% if t.has_login %}<span class="pill ok">kira oladi</span>{% else %}<span class="pill warn">parol yo'q</span>{% endif %}</td>
-          <td style="text-align:right"><a href="/owner/teachers/{{ t.id }}" class="btn" style="padding:6px 12px;font-size:12.5px">Ochish →</a></td>
+          <td>{% if t.active %}<span class="pill ok">faol</span>{% else %}<span class="pill bad">arxiv</span>{% endif %}</td>
+          <td style="text-align:right;white-space:nowrap">
+            {% if not t.active %}
+            <form method="post" action="/owner/teachers/{{ t.id }}/activate" style="display:inline;margin:0">
+              <button class="btn" type="submit" style="padding:6px 12px;font-size:12.5px;background:var(--good)">↺ Tiklash</button>
+            </form>
+            {% endif %}
+            <a href="/owner/teachers/{{ t.id }}" class="btn" style="padding:6px 12px;font-size:12.5px">Ochish →</a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    {% else %}<div class="empty">Hali o'qituvchi yo'q.</div>{% endif %}
+    {% else %}
+      {% if sel_status=='inactive' %}
+      <div class="empty">Arxivda o'qituvchi yo'q.</div>
+      {% else %}
+      <div class="empty">Hali o'qituvchi yo'q.</div>
+      {% endif %}
+    {% endif %}
   </div>
 </div>
+
+<style>
+  .seg{display:inline-flex;background:var(--soft);border:1px solid var(--line);border-radius:10px;padding:3px;gap:2px}
+  .seg a{padding:6px 13px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--muted);transition:.15s;white-space:nowrap}
+  .seg a:hover{color:var(--ink)}
+  .seg a.on{background:var(--panel);color:var(--brand-2);box-shadow:0 1px 3px rgba(16,40,35,.1)}
+</style>
 
 {% endblock %}

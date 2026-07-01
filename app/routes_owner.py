@@ -561,6 +561,7 @@ async def group_remove_student(gid: str, request: Request, user: dict = Depends(
 @router.get("/teachers")
 async def teachers_page(request: Request, user: dict = Depends(staff_required)):
     cid = user["center_id"]
+    sel_status = request.query_params.get("status") or "active"
     teachers = supabase.table("teachers").select("*").eq("center_id", cid).order("created_at", desc=True).execute().data or []
     teachers = _bfilter(teachers, user.get("active_branch"))
     q = (request.query_params.get("q") or "").strip().lower()
@@ -569,9 +570,14 @@ async def teachers_page(request: Request, user: dict = Depends(staff_required)):
     for t in teachers:
         t["has_login"] = bool(t.get("password_hash"))
         t["commission_percent"] = t.get("commission_percent") or 0
+        t["active"] = t.get("active", True) is not False
+    if sel_status == "active":
+        teachers = [t for t in teachers if t["active"]]
+    elif sel_status == "inactive":
+        teachers = [t for t in teachers if not t["active"]]
     return templates.TemplateResponse("owner_teachers.html", {
         "request": request, "user": user, "active": "teachers", "teachers": teachers,
-        "q": request.query_params.get("q") or "",
+        "q": request.query_params.get("q") or "", "sel_status": sel_status,
     })
 
 
@@ -1155,6 +1161,7 @@ async def teacher_detail(tid: str, request: Request, user: dict = Depends(staff_
         return RedirectResponse("/owner/teachers", status_code=303)
     t = trows[0]
     t["has_login"] = bool(t.get("password_hash"))
+    t["is_active"] = t.get("active", True) is not False
     pct = float(t.get("commission_percent") or 0)
 
     groups = supabase.table("groups").select("*").eq("center_id", cid).eq("teacher_id", tid).execute().data or []
@@ -1209,6 +1216,35 @@ async def teacher_payout(tid: str, request: Request, user: dict = Depends(staff_
         if not _insert_outflow("teacher_payouts", base, account_id, method):
             err = "1"
     return RedirectResponse(f"/owner/teachers/{tid}?" + ("err=1" if err else "saved=1"), status_code=303)
+
+
+@router.post("/teachers/{tid}/archive")
+async def teacher_archive(tid: str, request: Request, user: dict = Depends(staff_required)):
+    cid = user["center_id"]
+    try:
+        supabase.table("teachers").update({"active": False}).eq("id", tid).eq("center_id", cid).execute()
+    except Exception:
+        pass  # 'active' ustuni yo'q bo'lsa (schema_v25 RUN qilinmagan) — jim o'tamiz
+    return RedirectResponse(f"/owner/teachers/{tid}", status_code=303)
+
+
+@router.post("/teachers/{tid}/activate")
+async def teacher_activate(tid: str, request: Request, user: dict = Depends(staff_required)):
+    try:
+        supabase.table("teachers").update({"active": True}).eq("id", tid).eq("center_id", user["center_id"]).execute()
+    except Exception:
+        pass
+    return RedirectResponse(f"/owner/teachers/{tid}", status_code=303)
+
+
+@router.post("/teachers/{tid}/delete")
+async def teacher_delete(tid: str, request: Request, user: dict = Depends(owner_required)):
+    # Guruhlar teacher_id'si avtomatik NULL bo'ladi (on delete set null) — tarix buzilmaydi
+    try:
+        supabase.table("teachers").delete().eq("id", tid).eq("center_id", user["center_id"]).execute()
+    except Exception:
+        pass
+    return RedirectResponse("/owner/teachers", status_code=303)
 
 
 # ====================================================================
@@ -2622,10 +2658,14 @@ async def analytics_page(request: Request, user: dict = Depends(staff_required))
     sel_month = request.query_params.get("month") or now_ym
     months = [(ym, _ym_label(ym)) for ym in (data.add_months(now_ym, k) for k in range(-11, 1))]
 
-    # ===== GLOBAL moliyaviy ko'rsatkichlar (tanlangan oy, BARCHA filiallar) =====
-    income = data.income_for_month(cid, sel_month)
-    expenses = data.expenses_for_month(cid, sel_month)
-    payouts = sum(data.payouts_for_month(cid, sel_month).values())
+    # 🏢 Tanlangan filial bo'yicha filtr (None bo'lsa — barcha filiallar)
+    bid = user.get("active_branch")
+    bst, bgrp, bte = data.branch_members(cid, bid)
+
+    # ===== Moliyaviy ko'rsatkichlar (tanlangan oy, tanlangan filial) =====
+    income = data.income_for_month(cid, sel_month, bst)
+    expenses = data.expenses_for_month(cid, sel_month, bid)
+    payouts = sum(data.payouts_for_month(cid, sel_month, bte).values())
     refund = 0.0
     profit = income - expenses - payouts
     fin = {"income": income, "refund": refund, "payouts": payouts,
@@ -2669,7 +2709,9 @@ async def analytics_page(request: Request, user: dict = Depends(staff_required))
     try:
         for p in (supabase.table("payments").select("student_id, amount, paid_at, method")
                   .eq("center_id", cid).eq("status", "paid").gte("paid_at", ms).lt("paid_at", me)
-                  .order("paid_at", desc=True).limit(15).execute().data or []):
+                  .order("paid_at", desc=True).limit(60).execute().data or []):
+            if bst is not None and p.get("student_id") not in bst:
+                continue
             recent_tx.append({"kind": "in", "title": snm.get(p.get("student_id"), "To'lov"),
                               "amount": float(p.get("amount") or 0),
                               "at": (p.get("paid_at") or "")[:16].replace("T", " "),
@@ -2677,9 +2719,11 @@ async def analytics_page(request: Request, user: dict = Depends(staff_required))
     except Exception:
         pass
     try:
-        for e in (supabase.table("expenses").select("category, amount, spent_at")
+        for e in (supabase.table("expenses").select("category, amount, spent_at, branch_id")
                   .eq("center_id", cid).gte("spent_at", ms).lt("spent_at", me)
-                  .order("spent_at", desc=True).limit(10).execute().data or []):
+                  .order("spent_at", desc=True).limit(40).execute().data or []):
+            if bid and e.get("branch_id") != bid:
+                continue
             recent_tx.append({"kind": "out", "title": e.get("category") or "Xarajat",
                               "amount": float(e.get("amount") or 0),
                               "at": (e.get("spent_at") or "")[:16].replace("T", " "), "method": ""})
@@ -2690,9 +2734,11 @@ async def analytics_page(request: Request, user: dict = Depends(staff_required))
 
     # ===== Lidlar voronkasi (GLOBAL) =====
     try:
-        leads = supabase.table("leads").select("status").eq("center_id", cid).execute().data or []
+        leads = supabase.table("leads").select("status, branch_id").eq("center_id", cid).execute().data or []
     except Exception:
         leads = []
+    if bid:
+        leads = [l for l in leads if l.get("branch_id") == bid]
     lc = {}
     for l in leads:
         st = l.get("status") or "new"
@@ -2707,8 +2753,10 @@ async def analytics_page(request: Request, user: dict = Depends(staff_required))
         "trial_conv": round(enrolled_n * 100 / trial_n) if trial_n else 0,
     }
 
-    # ===== O'quvchilar retention/churn (GLOBAL) =====
-    students = supabase.table("students").select("id, active").eq("center_id", cid).execute().data or []
+    # ===== O'quvchilar retention/churn =====
+    students = supabase.table("students").select("id, active, branch_id").eq("center_id", cid).execute().data or []
+    if bst is not None:
+        students = [s for s in students if s["id"] in bst]
     active_n = sum(1 for s in students if s.get("active", True) is not False)
     churned_n = sum(1 for s in students if s.get("active", True) is False)
     total_students = len(students)
@@ -2720,9 +2768,9 @@ async def analytics_page(request: Request, user: dict = Depends(staff_required))
     max_income = 1
     for k in range(-5, 1):
         ym = data.add_months(now_ym, k)
-        inc = data.income_for_month(cid, ym)
-        exp = data.expenses_for_month(cid, ym)
-        pay = sum(data.payouts_for_month(cid, ym).values())
+        inc = data.income_for_month(cid, ym, bst)
+        exp = data.expenses_for_month(cid, ym, bid)
+        pay = sum(data.payouts_for_month(cid, ym, bte).values())
         trend.append({"ym": ym, "label": _ym_label(ym), "income": inc,
                       "expense": exp + pay, "profit": inc - exp - pay})
         max_income = max(max_income, inc, exp + pay)
@@ -2730,23 +2778,29 @@ async def analytics_page(request: Request, user: dict = Depends(staff_required))
         t["bar_income"] = round(t["income"] * 100 / max_income, 1)
         t["bar_expense"] = round(t["expense"] * 100 / max_income, 1)
 
-    # ===== Davomat (GLOBAL) =====
+    # ===== Davomat =====
     try:
-        att = supabase.table("attendance").select("status").eq("center_id", cid).execute().data or []
+        att = supabase.table("attendance").select("status, student_id").eq("center_id", cid).execute().data or []
     except Exception:
         att = []
+    if bst is not None:
+        att = [a for a in att if a.get("student_id") in bst]
     present = sum(1 for a in att if a.get("status") in ("present", "late"))
     att_rate = round(present * 100 / len(att)) if att else None
 
-    # ===== Qarzdorlik (GLOBAL) =====
+    # ===== Qarzdorlik =====
     debt_map = data.center_debtors(cid)
+    if bst is not None:
+        debt_map = {sid: v for sid, v in debt_map.items() if sid in bst}
     debtors_n = sum(1 for v in debt_map.values() if v > 0)
     total_debt = sum(v for v in debt_map.values() if v > 0)
 
-    # ===== Coin (GLOBAL) =====
+    # ===== Coin =====
     c_earned = c_spent = 0
     try:
-        for tx in (supabase.table("coin_tx").select("amount").eq("center_id", cid).execute().data or []):
+        for tx in (supabase.table("coin_tx").select("amount, student_id").eq("center_id", cid).execute().data or []):
+            if bst is not None and tx.get("student_id") not in bst:
+                continue
             a = int(tx.get("amount") or 0)
             c_earned += a if a >= 0 else 0
             c_spent += -a if a < 0 else 0

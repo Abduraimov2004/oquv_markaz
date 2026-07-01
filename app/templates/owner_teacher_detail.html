@@ -4,8 +4,26 @@
 {% block content %}
 
 <div class="pagehead">
-  <div><p>{{ t.subject or "—" }}{% if t.phone %} · {{ t.phone }}{% endif %} · {{ month }} oyi</p></div>
+  <div><p>{{ t.subject or "—" }}{% if t.phone %} · {{ t.phone }}{% endif %} · {{ month }} oyi
+    {% if t.is_active %}<span class="pill ok" style="margin-left:6px">faol</span>{% else %}<span class="pill bad" style="margin-left:6px">arxivlangan</span>{% endif %}</p></div>
   <a href="/owner/teachers" class="muted" style="font-size:13px">← O'qituvchilar</a>
+</div>
+
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+  {% if t.is_active %}
+  <form method="post" action="/owner/teachers/{{ t.id }}/archive" data-confirm="O'qituvchi arxivlansinmi? Tarix saqlanadi, ro'yxatdan yashiriladi." style="margin:0">
+    <button class="btn" style="background:#c98a2b">⏻ Arxivlash</button>
+  </form>
+  {% else %}
+  <form method="post" action="/owner/teachers/{{ t.id }}/activate" style="margin:0">
+    <button class="btn" style="background:var(--good)">↺ Qayta faollashtirish</button>
+  </form>
+  {% endif %}
+  {% if user.is_owner %}
+  <form method="post" action="/owner/teachers/{{ t.id }}/delete" data-confirm="O'qituvchi butunlay o'chirilsinmi? Bu amalni qaytarib bo'lmaydi (guruhlari o'qituvchisiz qoladi)." style="margin:0">
+    <button class="btn" style="background:#c2563f">🗑 O'chirish</button>
+  </form>
+  {% endif %}
 </div>
 
 {% if saved %}<div class="err" style="background:#e3f3eb;color:#1f7a52">✅ Saqlandi</div>{% endif %}

@@ -4,7 +4,7 @@
 {% block content %}
 
 <div class="pagehead" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-  <div><p>Barcha filiallar bo'yicha oylik moliyaviy hisobot.</p></div>
+  <div><p>{% if user.active_branch_name %}🏢 <b>{{ user.active_branch_name }}</b> filiali bo'yicha oylik moliyaviy hisobot.{% else %}Barcha filiallar bo'yicha oylik moliyaviy hisobot.{% endif %}</p></div>
   <form method="get" style="margin:0">
     <select name="month" onchange="this.form.submit()" style="width:auto;padding:8px 12px;font-weight:600">
       {% for ym, lbl in months %}<option value="{{ ym }}" {{ 'selected' if ym==sel_month }}>{{ lbl }}</option>{% endfor %}
